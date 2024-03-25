@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 
+set(CAMKE_C_COMPILER gcc)
+set(CAMKE_CXX_COMPILER g++)
+
 project(ROBOT)
 
 set(CMAKE_CXX_STANDARD 17)
