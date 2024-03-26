@@ -100,7 +100,7 @@ private:
 
     for (size_t i = 1;i < 6;++i)
     {
-      it->Forward_kinematics(angle(1), *it2);
+      it->Forward_kinematics(angle(i), *it2);
       ++it;
       ++it2;
     }
