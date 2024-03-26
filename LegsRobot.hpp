@@ -85,7 +85,7 @@ public:
   void Forward_kinematics(const Eigen::Vector<scalar, 12>& angle)
   {
     Forward_kinematics_legs(angle.segment<6>(0), _right_leg);
-    Forward_kinematics_legs(angle.segment<6>(6), _right_leg);
+    Forward_kinematics_legs(angle.segment<6>(6), _left_leg);
   }
 
 private:
