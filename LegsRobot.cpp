@@ -13,11 +13,8 @@ int main()
   std::cout << m << std::endl << m.topLeftCorner<1, 3>() << std::endl;;
   std::cout << m.topRightCorner<2, 3>() << std::endl;
 
-  Eigen::Matrix3d m1 = Eigen::Matrix3d::Identity();
-  Eigen::AngleAxis<double> angax(0.25 * M_PI, Eigen::Vector3d::UnitX());
+  Eigen::Matrix3d m1 = Eigen::AngleAxis<double>(M_PI/2, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  std::cout << m1 << std::endl;
 
-  Joint<double> j(Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitX(), 0);
-  Eigen::Vector3d::Zero();
-
-  LegsRobot<double> legr;
+  std::cout << m1 * Eigen::Vector3d::UnitX() << std::endl;
 }
