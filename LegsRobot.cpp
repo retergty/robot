@@ -12,4 +12,12 @@ int main()
 
   std::cout << m << std::endl << m.topLeftCorner<1, 3>() << std::endl;;
   std::cout << m.topRightCorner<2, 3>() << std::endl;
+
+  Eigen::Matrix3d m1 = Eigen::Matrix3d::Identity();
+  Eigen::AngleAxis<double> angax(0.25 * M_PI, Eigen::Vector3d::UnitX());
+
+  Joint<double> j(Eigen::Vector3d::UnitX(), Eigen::Vector3d::UnitX(), 0);
+  Eigen::Vector3d::Zero();
+
+  LegsRobot<double> legr;
 }

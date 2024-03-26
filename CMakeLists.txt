@@ -10,7 +10,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(robot LegsRobot.cpp LegsRobot.hpp)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g3 -Wall")
+
+add_executable(robot LegsRobot.cpp LegsRobot.hpp Tree.hpp)
 
 target_include_directories(robot PUBLIC eigen-3.4.0/Eigen)
+
 
