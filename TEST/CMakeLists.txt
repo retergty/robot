@@ -30,8 +30,6 @@ foreach(test_target IN LISTS test_targets)
   add_dependencies(${test_target} clear_${test_target}_gcda)
 endforeach()
 
-message("name of system is ${CMAKE_SYSTEM_NAME}")
-
 foreach(test_target IN LISTS test_targets)
   target_link_libraries(${test_target} PRIVATE gtest gmock gtest_main gmock_main)
   target_compile_options( ${test_target} PRIVATE
@@ -67,9 +65,9 @@ foreach(test_target IN LISTS test_targets)
     -Wunused-variable
     -Wstrict-overflow=4
     )
-    if(${CMAKE_SYSTEM_NAME} MATCHES "Windows.*")
+    if(CMAKE_SYSTEM_NAME MATCHES "Windows.*")
       message("System is windows,doesn't support coverage test")
-    elseif(${CMAKE_SYSTEM_NAME} MATCHES "CYGWIN.*")
+    elseif(CMAKE_SYSTEM_NAME MATCHES "CYGWIN.*")
       target_compile_options(${test_target} PRIVATE --coverage)
       message("System is cygwin")
     endif()
