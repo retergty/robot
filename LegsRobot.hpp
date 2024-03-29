@@ -4,6 +4,32 @@
 #include <vector>
 #include <list>
 #include <math.h>
+#include <iostream>
+#include "HelperFunction.h"
+
+template<typename scalar>
+struct Pose;
+
+template<typename scalar>
+class Joint;
+
+template<typename scalar>
+std::ostream& operator<<(std::ostream& os, const Pose<scalar>& pose)
+{
+  os << "pose absolute position: " << std::endl << pose.abs_p << std::endl;
+  os << "Pose rotation matirx: " << std::endl << pose.rot << std::endl;
+  return os;
+}
+
+template<typename scalar>
+std::ostream& operator<<(std::ostream& os,const Joint<scalar>& joint)
+{
+  os << static_cast<const Pose<scalar>>(joint);
+  os << "joint relative position: " << joint._rel_p << std::endl;
+  os << "joint axis: " << joint._axis << std::endl;
+  os << "joint angle: " << joint._angle << std::endl;
+  return os;
+}
 
 template<typename scalar>
 struct Pose
@@ -36,6 +62,13 @@ struct Pose
   inline Vector3 position() { return abs_p; };
   inline Matrix33 rotation() { return rot; };
 
+  bool operator==(const Pose& other) {
+    return (abs_p.isApprox(other.bas_p)) && (rot.isApprox(other.rot));
+  }
+  bool operator!=(const Pose& other) {
+    return !this->operator==(other);
+  }
+  friend std::ostream& operator<<<scalar>(std::ostream& c, const Pose<scalar>& pose);
 protected:
   Vector3 abs_p;
   Matrix33 rot;
@@ -89,6 +122,13 @@ public:
     _angle = Eigen::AngleAxis<scalar>(parent_q.inverse() * joint_q).angle();
   }
 
+  inline bool operator==(const Joint<scalar>& other) {
+    return (Pose<scalar>::operator==(other)) && (_rel_p.isApprox(other._rel_p)) && (isEqual(_angle, other._angle));
+  }
+  inline bool operator!=(const Joint<scalar>&other) {
+    return !(*this == other);
+  }
+  friend std::ostream& operator<<<scalar>(std::ostream& os, const Joint<scalar>& joint);
 private:
   const Vector3 _rel_p; // relative position vector, relative to its parent joint, defined in parent coordinate. doesn't change. (no so sure)
   const Vector3 _axis;   // rotate axis, it's the joint rotation direction, defined in parent coordinate. doesn't change. (no so sure)
@@ -149,7 +189,7 @@ public:
   inline void Inverse_kinematics(const Pose<scalar>& leg_center, const Pose<scalar>& right_last, const Pose<scalar>& left_last)
   {
     _leg_center = leg_center;
-    Forward_kinematics(Inverse_kinematics(right_last, left_last));
+    Forward_kinematics(Inverse_kinematics_angle(right_last, left_last));
   }
   // inverse kenematic, use pose of leg_center and right and left last joint is enought
   // @return 12 angles
@@ -211,6 +251,17 @@ private:
     angle(0) = std::atan2(-tmp(0, 0), tmp(1, 1));
     angle(1) = std::atan2(tmp(2, 1), -tmp(0, 1) * std::sin(angle(0)) + tmp(1, 1) * std::cos(angle(0)));
     angle(2) = std::atan2(-tmp(2, 0), tmp(2, 2));
+  }
+
+  bool operator==(const LegsRobot<scalar>& other)
+  {
+    return (_leg_center == other._leg_center) &&
+      (_right_leg == other._right_leg) &&
+      (_left_leg == other._left_leg);
+  }
+  inline bool operator!=(const LegsRobot<scalar>& other)
+  {
+    return !(*this == other);
   }
   Pose<scalar> _leg_center;   // center of legs, its parent is global coordinate.
   std::vector<Joint<scalar>> _right_leg;

@@ -2,9 +2,11 @@ enable_testing()
 add_subdirectory(googletest)
 
 add_executable(kinematics kinematics_test.cpp)
+add_executable(basic basic_test.cpp)
 
 set(test_targets
-    kinematics)
+    kinematics
+    basic)
 
 foreach(test_target IN LISTS test_targets)
   get_property(target_srcs TARGET ${test_target} PROPERTY SOURCES)
@@ -51,13 +53,11 @@ foreach(test_target IN LISTS test_targets)
     -Wno-unused
     -Wno-unused-parameter
     -Wnoexcept
-    -Wold-style-cast
     -Woverloaded-virtual
     -Wpointer-arith
     -Wredundant-decls
     -Wreorder
     -Wshadow
-    -Wsign-conversion
     -Wsign-promo
     -Wstrict-null-sentinel
     -Wswitch-default
@@ -68,7 +68,8 @@ foreach(test_target IN LISTS test_targets)
     if(CMAKE_SYSTEM_NAME MATCHES "Windows.*")
       message("System is windows,doesn't support coverage test")
     elseif(CMAKE_SYSTEM_NAME MATCHES "CYGWIN.*")
-      target_compile_options(${test_target} PRIVATE --coverage)
-      message("System is cygwin")
+      message("System is cygwin,doesn't support coverage test")
     endif()
+    add_test(NAME ${test_target}_test COMMAND ./${test_target})
+    target_link_libraries(${test_target} PRIVATE include_dir)
 endforeach()

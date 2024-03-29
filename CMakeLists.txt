@@ -16,9 +16,14 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
 
 add_executable(robot LegsRobot.cpp LegsRobot.hpp Tree.hpp)
 
-target_include_directories(robot PUBLIC eigen-3.4.0/Eigen)
+add_library(include_dir INTERFACE)
+
+target_include_directories(include_dir INTERFACE eigen-3.4.0/Eigen ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(robot PRIVATE include_dir)
 
 
 if(TESTING)
+  enable_testing()
   add_subdirectory(TEST)
 endif()
