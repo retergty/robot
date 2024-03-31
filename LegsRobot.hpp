@@ -14,6 +14,9 @@ template<typename scalar>
 class Joint;
 
 template<typename scalar>
+class LegsRobot;
+
+template<typename scalar>
 std::ostream& operator<<(std::ostream& os, const Pose<scalar>& pose)
 {
   os << "pose absolute position: " << std::endl << pose.abs_p << std::endl;
@@ -25,9 +28,24 @@ template<typename scalar>
 std::ostream& operator<<(std::ostream& os,const Joint<scalar>& joint)
 {
   os << static_cast<const Pose<scalar>>(joint);
-  os << "joint relative position: " << joint._rel_p << std::endl;
-  os << "joint axis: " << joint._axis << std::endl;
-  os << "joint angle: " << joint._angle << std::endl;
+  os << "joint relative position: " << std::endl << joint._rel_p << std::endl;
+  os << "joint axis: " << std::endl << joint._axis << std::endl;
+  os << "joint angle: " << std::endl << joint._angle << std::endl;
+  return os;
+}
+
+template<typename scalar>
+std::ostream& operator<<(std::ostream& os, const LegsRobot<scalar>& legsrobot)
+{
+  os << "Leg Robot leg center:" << std::endl << legsrobot._leg_center << std::endl;
+  size_t count = 0;
+  for (auto it = legsrobot._right_leg.cbegin(), end = legsrobot._right_leg.cend();it != end;++it) {
+    os << "right leg " << ++count << " joint :" << std::endl << *it;
+  }
+  count = 0;
+  for (auto it = legsrobot._left_leg.cbegin(), end = legsrobot._left_leg.cend();it != end;++it) {
+    os << "left leg " << ++count << " joint :" << std::endl << *it;
+  }
   return os;
 }
 
@@ -59,13 +77,14 @@ struct Pose
   inline void SetPosition(const Vector3& position) { abs_p = position; };
   inline void SetRotation(const Matrix33& rotation) { rot = rotation; };
 
-  inline Vector3 position() { return abs_p; };
-  inline Matrix33 rotation() { return rot; };
+  inline Vector3 position() const { return abs_p; };
 
-  bool operator==(const Pose& other) {
-    return (abs_p.isApprox(other.bas_p)) && (rot.isApprox(other.rot));
+  inline Matrix33 rotation() const { return rot; };
+
+  bool operator==(const Pose& other) const{
+    return (abs_p.isApprox(other.abs_p)) && (rot.isApprox(other.rot));
   }
-  bool operator!=(const Pose& other) {
+  bool operator!=(const Pose& other) const{
     return !this->operator==(other);
   }
   friend std::ostream& operator<<<scalar>(std::ostream& c, const Pose<scalar>& pose);
@@ -84,54 +103,88 @@ public:
   // init a joint relative to a pose
   Joint(const Vector3& rel_p, const Vector3& axis, const scalar init_ang, const Pose<scalar>& parent_pose) : _rel_p(rel_p), _axis(axis), _angle(init_ang)
   {
-    this->abs_p = parent_pose.rot * _rel_p + parent_pose.abs_p;
-    this->rot = parent_pose.rot * Eigen::AngleAxis<scalar>(_angle, _axis); // axis rotate need transpose rotation matrix
+    const Vector3 par_pos = parent_pose.position();
+    const Matrix33 par_rot = parent_pose.rotation();
+    this->abs_p = par_rot * _rel_p + par_pos;
+    this->rot = par_rot * Eigen::AngleAxis<scalar>(_angle, _axis); // axis rotate need transpose rotation matrix
+  }
+
+  //copy constructor
+  Joint(const Joint& other) : Pose<scalar>(other), _rel_p(other._rel_p), _axis(other._axis), _angle(other._angle){};
+
+  //assignment operator
+  Joint& operator=(const Joint& other)
+  {
+    Pose<scalar>::operator=(other);
+    _rel_p = other._rel_p;
+    _axis = other._axis;
+    _angle = other._angle;
+    return *this;
   }
 
   //calculate absolute position using parent pose
-  inline Vector3 CalPosition(const Pose<scalar>& parent_pose)
+  inline Vector3 calPosition(const Pose<scalar>& parent_pose)
   {
-    return parent_pose.abs_p + parent_pose * _rel_p;
+    return parent_pose.position() + parent_pose.rotation() * _rel_p;
+  }
+  inline Vector3 calPosition(const Matrix33& parent_rotation, const Vector3& parent_abs_position)
+  {
+    return parent_abs_position + parent_rotation * _rel_p;
+  }
+
+  inline Matrix33 calRotation(const Pose<scalar>& parent_pose)
+  {
+    return parent_pose.rotation() * Eigen::AngleAxis<scalar>(_angle, _axis);
+  }
+  inline Matrix33 calRotation(const Matrix33& parent_rotation)
+  {
+    return parent_rotation * Eigen::AngleAxis<scalar>(_angle, _axis);
   }
 
   //calculate rotation matrix and absolute position vector using joint angle.
   void Forward_kinematics(const scalar angle, const Pose<scalar>& parent_pose)
   {
     _angle = angle;
-    this->abs_p = parent_pose.rot * _rel_p + parent_pose.abs_p;
-    this->rot = parent_pose.rot * Eigen::AngleAxis<scalar>(_angle, _axis);
+    this->abs_p = calPosition(parent_pose);
+    this->rot = calRotation(parent_pose);
   }
 
   //calculate rotation matrix and absolute position
   void Forward_kinematics(const scalar angle, const Matrix33& parent_rotation, const Vector3& parent_abs_p)
   {
     _angle = angle;
-    this->abs_p = parent_rotation * _rel_p + parent_abs_p;
-    this->rot = parent_rotation * Eigen::AngleAxis<scalar>(_angle, _axis);
+    this->abs_p = calPosition(parent_rotation, parent_abs_p);
+    this->rot = calRotation(parent_rotation);
   }
 
   // inverse kenematics,calculate angle using rotation
   void Inverse_kinematics(const Matrix33& rotation, const Pose<scalar>& parent_pose)
   {
+    const Matrix33 p_rotation = parent_pose.rotation();
+    const Vector3 p_abs_pos = parent_pose.position();
     this->rot = rotation;
-    this->abs_p = parent_pose.rot * _rel_p + parent_pose.abs_p;
+    this->abs_p = p_rotation * _rel_p + p_abs_pos;
 
-    Eigen::Quaternion<scalar> parent_q(parent_pose.rot);
-    Eigen::Quaternion<scalar> joint_q(this->rotation);
+    Eigen::Quaternion<scalar> parent_q(p_rotation);
+    Eigen::Quaternion<scalar> joint_q(rotation);
 
     _angle = Eigen::AngleAxis<scalar>(parent_q.inverse() * joint_q).angle();
   }
 
-  inline bool operator==(const Joint<scalar>& other) {
+  inline bool operator==(const Joint<scalar>& other) const {
     return (Pose<scalar>::operator==(other)) && (_rel_p.isApprox(other._rel_p)) && (isEqual(_angle, other._angle));
   }
-  inline bool operator!=(const Joint<scalar>&other) {
+  inline bool operator!=(const Joint<scalar>&other) const {
     return !(*this == other);
   }
+  inline scalar angle() const { return _angle; };
+  inline Vector3 relposition() const { return _rel_p; };
+  inline Vector3 axis() const { return _axis; };
+  
   friend std::ostream& operator<<<scalar>(std::ostream& os, const Joint<scalar>& joint);
 private:
-  const Vector3 _rel_p; // relative position vector, relative to its parent joint, defined in parent coordinate. doesn't change. (no so sure)
-  const Vector3 _axis;   // rotate axis, it's the joint rotation direction, defined in parent coordinate. doesn't change. (no so sure)
+  Vector3 _rel_p; // relative position vector, relative to its parent joint, defined in parent coordinate. doesn't change. (no so sure)
+  Vector3 _axis;   // rotate axis, it's the joint rotation direction, defined in parent coordinate. doesn't change. (no so sure)
   scalar _angle; // joint angle.
 };
 
@@ -178,6 +231,21 @@ public:
     _left_leg.emplace_back(Vector3::Zero(), Vector3::UnitX(), 0, _left_leg.back()); // J13
   }
 
+  //copy constuctor
+  LegsRobot(const LegsRobot& other) = default;
+
+  // assignment operator
+  LegsRobot& operator=(const LegsRobot& rhs) {
+    _leg_center = rhs._leg_center;
+    _right_leg = rhs._right_leg;
+    _left_leg = rhs._left_leg;
+  }
+
+  //get leg center
+  inline Pose<scalar> legCenter() const { return _leg_center; };
+  inline const std::vector<Joint<scalar>>& rightLeg() const { return _right_leg; };
+  inline const std::vector<Joint<scalar>>& leftLeg() const { return _left_leg; };
+
   // calculate every joint abs_p and rotation matrix
   void Forward_kinematics(const Eigen::Vector<scalar, 12>& angle)
   {
@@ -201,6 +269,7 @@ public:
     return angle;
   }
 
+  friend std::ostream& operator<<<scalar>(std::ostream& os, const LegsRobot<scalar>& robot);
 private:
   void Forward_kinematics_leg(const Eigen::Vector<scalar, 6>& angle, std::list<Joint<scalar>>& leg)
   {
@@ -227,10 +296,10 @@ private:
     Eigen::Vector<scalar, 6> angle;
     Vector3 p2;
     if constexpr (is_right_leg == 1) {
-      p2 = _right_leg[0].CalPosition(_leg_center);
+      p2 = _right_leg[0].calPosition(_leg_center);
     }
     else {
-      p2 = _left_leg[0].CalPosition(_leg_center);
+      p2 = _left_leg[0].calPosition(_leg_center);
     }
     Vector3 r = last.rotation().transpose() * (last.position() - p2);
 
@@ -253,13 +322,13 @@ private:
     angle(2) = std::atan2(-tmp(2, 0), tmp(2, 2));
   }
 
-  bool operator==(const LegsRobot<scalar>& other)
+  bool operator==(const LegsRobot<scalar>& other) const 
   {
     return (_leg_center == other._leg_center) &&
       (_right_leg == other._right_leg) &&
       (_left_leg == other._left_leg);
   }
-  inline bool operator!=(const LegsRobot<scalar>& other)
+  inline bool operator!=(const LegsRobot<scalar>& other) const 
   {
     return !(*this == other);
   }

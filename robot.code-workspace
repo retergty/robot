@@ -93,7 +93,10 @@
 			"numericaldiff": "cpp",
 			"openglsupport": "cpp",
 			"specialfunctions": "cpp",
-			"splines": "cpp"
+			"splines": "cpp",
+			"any": "cpp",
+			"csignal": "cpp",
+			"forward_list": "cpp"
 		}
 	}
 }
