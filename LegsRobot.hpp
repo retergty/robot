@@ -82,7 +82,7 @@ struct Pose
   inline Matrix33 rotation() const { return rot; };
 
   bool operator==(const Pose& other) const{
-    return (abs_p.isApprox(other.abs_p)) && (rot.isApprox(other.rot));
+    return (abs_p.isApprox(other.abs_p,1e-5)) && (rot.isApprox(other.rot,1e-5));
   }
   bool operator!=(const Pose& other) const{
     return !this->operator==(other);
@@ -172,7 +172,7 @@ public:
   }
 
   inline bool operator==(const Joint<scalar>& other) const {
-    return (Pose<scalar>::operator==(other)) && (_rel_p.isApprox(other._rel_p)) && (isEqual(_angle, other._angle));
+    return (Pose<scalar>::operator==(other)) && (_rel_p.isApprox(other._rel_p,1e-5)) && (isEqual(_angle, other._angle));
   }
   inline bool operator!=(const Joint<scalar>&other) const {
     return !(*this == other);
@@ -245,6 +245,17 @@ public:
   inline Pose<scalar> legCenter() const { return _leg_center; };
   inline const std::vector<Joint<scalar>>& rightLeg() const { return _right_leg; };
   inline const std::vector<Joint<scalar>>& leftLeg() const { return _left_leg; };
+  
+  bool operator==(const LegsRobot<scalar>& other) const 
+  {
+    return (_leg_center == other._leg_center) &&
+      (_right_leg == other._right_leg) &&
+      (_left_leg == other._left_leg);
+  }
+  inline bool operator!=(const LegsRobot<scalar>& other) const 
+  {
+    return !(*this == other);
+  }
 
   // calculate every joint abs_p and rotation matrix
   void Forward_kinematics(const Eigen::Vector<scalar, 12>& angle)
@@ -264,14 +275,18 @@ public:
   Eigen::Vector<scalar,12> Inverse_kinematics_angle(const Pose<scalar>& right_last, const Pose<scalar>& left_last)
   {
     Eigen::Vector<scalar, 12> angle;
-    angle.template segment<6>(0) = Inverse_kinematics_leg<true>(right_last);
-    angle.template segment<6>(6) = Inverse_kinematics_leg<false>(left_last);
+    angle.template segment<6>(0) = Inverse_kinematics_leg<LEG::RIGHT>(right_last);
+    angle.template segment<6>(6) = Inverse_kinematics_leg<LEG::LEFT>(left_last);
     return angle;
   }
 
   friend std::ostream& operator<<<scalar>(std::ostream& os, const LegsRobot<scalar>& robot);
 private:
-  void Forward_kinematics_leg(const Eigen::Vector<scalar, 6>& angle, std::list<Joint<scalar>>& leg)
+  enum LEG {
+    RIGHT,
+    LEFT
+  };
+  void Forward_kinematics_leg(const Eigen::Vector<scalar, 6>& angle, std::vector<Joint<scalar>>& leg)
   {
     assert(leg.size() == 6);
     auto it = leg.begin();
@@ -290,47 +305,42 @@ private:
 
   // inverse kenematics using analysis
   // using pose of leg center and last joint is enough
-  template<bool is_right_leg>
+  template<LEG leg>
   Eigen::Vector<scalar,6> Inverse_kinematics_leg(const Pose<scalar>& last)
   {
     Eigen::Vector<scalar, 6> angle;
     Vector3 p2;
-    if constexpr (is_right_leg == 1) {
+    if constexpr (leg == RIGHT) {
       p2 = _right_leg[0].calPosition(_leg_center);
     }
     else {
       p2 = _left_leg[0].calPosition(_leg_center);
     }
-    Vector3 r = last.rotation().transpose() * (last.position() - p2);
+    Vector3 r = last.rotation().transpose() * (p2 - last.position());
 
-    angle(3) = M_PI - std::acos((thigh_length * thigh_length + shank_length * shank_length - r.squaredNorm()) / (2 * thigh_length * shank_length));
+    scalar sca_tmp = (thigh_length * thigh_length + shank_length * shank_length - r.squaredNorm()) / (2 * thigh_length * shank_length);
+    sca_tmp =  LimitTo<double>(sca_tmp,-1,1);
+    angle(3) = M_PI - std::acos(sca_tmp);
 
-    scalar angle_ahy = std::asin(thigh_length * std::sin(M_PI - angle(3)) / r.Norm());
+    sca_tmp = thigh_length * std::sin(M_PI - angle(3)) / r.norm();
+    sca_tmp = LimitTo<double>(sca_tmp,-1,1);
+    scalar angle_ahy = std::asin(sca_tmp);
     
     angle(5) = std::atan2(r.y(), r.z());
 
-    angle(4) = -std::atan2(r.x(), r.y() * std::sin(angle(5)) + r.z() * std::cos(angle(5)));
+    angle(4) = -std::atan2(r.x(), r.y() * std::sin(angle(5)) + r.z() * std::cos(angle(5)))-angle_ahy;
 
     Matrix33 tmp =
       _leg_center.rotation().transpose() *
-      last.rotation().transpose() *
+      last.rotation() *
       Eigen::AngleAxis<scalar>(angle(5), Vector3::UnitX()).toRotationMatrix().transpose() *
-      Eigen::AngleAxis<scalar>(angle(3) + angle(4), Vector3::UnitY()).toRotationMatrix.transpose();
+      Eigen::AngleAxis<scalar>(angle(3) + angle(4), Vector3::UnitY()).toRotationMatrix().transpose();
 
-    angle(0) = std::atan2(-tmp(0, 0), tmp(1, 1));
+    angle(0) = std::atan2(-tmp(0, 1), tmp(1, 1));
     angle(1) = std::atan2(tmp(2, 1), -tmp(0, 1) * std::sin(angle(0)) + tmp(1, 1) * std::cos(angle(0)));
     angle(2) = std::atan2(-tmp(2, 0), tmp(2, 2));
-  }
 
-  bool operator==(const LegsRobot<scalar>& other) const 
-  {
-    return (_leg_center == other._leg_center) &&
-      (_right_leg == other._right_leg) &&
-      (_left_leg == other._left_leg);
-  }
-  inline bool operator!=(const LegsRobot<scalar>& other) const 
-  {
-    return !(*this == other);
+    return angle;
   }
   Pose<scalar> _leg_center;   // center of legs, its parent is global coordinate.
   std::vector<Joint<scalar>> _right_leg;

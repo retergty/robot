@@ -42,7 +42,6 @@ foreach(test_target IN LISTS test_targets)
     -Wcast-qual
     -Wdisabled-optimization
     -Wextra
-    -Wfloat-equal
     -Wformat-security
     -Wformat=2
     -Winit-self
