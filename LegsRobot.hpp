@@ -347,3 +347,11 @@ private:
   std::vector<Joint<scalar>> _left_leg;
 };
 
+
+// Jacobian velocity matirx, return jacobian velocity matrix, relate velocity of end-effector to base, u
+template<typename scalar>
+Eigen::Matrix<scalar,3,Eigen::Dynamic> Jacobian_velocity(const std::vector<Joint<scalar>>& joint_chain)
+{
+  Eigen::Matrix<scalar,3,Eigen::Dynamic> jocob_v;
+  
+}
