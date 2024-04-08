@@ -3,10 +3,13 @@ add_subdirectory(googletest)
 
 add_executable(kinematics kinematics_test.cpp)
 add_executable(basic basic_test.cpp)
+add_executable(jacobian jacobian_test.cpp)
+
 
 set(test_targets
     kinematics
-    basic)
+    basic
+    jacobian)
 
 foreach(test_target IN LISTS test_targets)
   get_property(target_srcs TARGET ${test_target} PROPERTY SOURCES)
@@ -62,7 +65,6 @@ foreach(test_target IN LISTS test_targets)
     -Wswitch-default
     -Wuninitialized
     -Wunused-variable
-    -Wstrict-overflow=4
     )
     if(CMAKE_SYSTEM_NAME MATCHES "Windows.*")
       message("System is windows,doesn't support coverage test")
