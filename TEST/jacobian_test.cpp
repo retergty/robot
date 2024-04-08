@@ -72,10 +72,11 @@ TEST(jacobian_test, robot_jacobian_normal)
   Eigen::Vector<double, 6> angle_rate_cal;
   angle_rate_cal = rob1.Angle_vel_edf<LegsRobot<double>::LEG::RIGHT>(edf_p, end_effctor_vel_right_direct);
   std::cout << std::endl << angle_rate_cal << std::endl;
-  EXPECT_TRUE(angle_rate.isApprox(angle_rate_cal, 1e-6));
 
   Eigen::Vector<double, 3> edf_vel_cal = rob1.End_effctor_vel<LegsRobot<double>::LEG::RIGHT>(edf_p, angle_rate_cal);
   std::cout << std::endl
     << edf_vel_cal
     << std::endl;
+  
+  EXPECT_TRUE(edf_vel_cal.isApprox(end_effctor_vel_right, 1e-6));
 }

@@ -199,7 +199,7 @@ public:
   constexpr static scalar thigh_length = 0.1; // thigh length in meters
   constexpr static scalar shank_length = 0.15; //shank length in meters
 
-  const Vector3 body_joint_position{ 0,0,-0.05 };
+  const Vector3 body_joint_position{ 0,0,20 };
 
   enum LEG {
     RIGHT,
