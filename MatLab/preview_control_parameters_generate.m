@@ -39,6 +39,7 @@ end
 fid = fopen('prvctl_parm.txt','w');
 
 fprintf(fid,"sample_time %f\r\n",sample_time);
+fprintf(fid,"Zc %f\r\n",Zc);
 
 [m,n] = size(A);
 fprintf(fid,"A %d %d ",m,n);

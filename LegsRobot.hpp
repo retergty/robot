@@ -199,14 +199,17 @@ public:
   constexpr static scalar thigh_length = 0.1; // thigh length in meters
   constexpr static scalar shank_length = 0.15; //shank length in meters
 
-  const Vector3 body_joint_position{ 0,0,20 };
+  const Vector3 leg_center_relative_to_com = { 0,0,-0.05 }; //center of leg relative to center of mass in center of mass coordinate
 
   enum LEG {
     RIGHT,
     LEFT
   };
-  LegsRobot() : _leg_center(body_joint_position)
+  LegsRobot(const Vector3& com_position =  { 0,0,0.23 },const Matrix33& com_rotation = Matrix33::Identity()) : _mass_center(com_position,com_rotation)
   {
+    const Vector3 leg_center_position = _mass_center.position() + _mass_center.rotation() * leg_center_relative_to_com;
+    _leg_center = Pose<scalar>(leg_center_position, _mass_center.rotation());
+
     const Vector3 right_hip_rel_p{ 0,-hip_length,0 };
     const Vector3 left_hip_rel_p = -right_hip_rel_p;
 
@@ -243,12 +246,14 @@ public:
 
   // assignment operator
   LegsRobot& operator=(const LegsRobot& rhs) {
+    _mass_center = rhs._mass_center;
     _leg_center = rhs._leg_center;
     _right_leg = rhs._right_leg;
     _left_leg = rhs._left_leg;
   }
 
   //get leg center
+  inline Pose<scalar> massCenter() const{ return _mass_center; };
   inline Pose<scalar> legCenter() const { return _leg_center; };
   inline const std::vector<Joint<scalar>>& rightLeg() const { return _right_leg; };
   inline const std::vector<Joint<scalar>>& leftLeg() const { return _left_leg; };
@@ -258,6 +263,10 @@ public:
       angle(i) = _right_leg[i].angle();
     }
     return angle;
+  }
+
+  inline Pose<scalar> CalLegCenter() const {
+    return Pose<scalar>(_mass_center.position() + _mass_center.rotation() * leg_center_relative_to_com, _mass_center.rotation());
   }
 
   Eigen::Vector<scalar, Eigen::Dynamic> leftLegAngle() const {
@@ -270,7 +279,8 @@ public:
 
   bool operator==(const LegsRobot<scalar>& other) const
   {
-    return (_leg_center == other._leg_center) &&
+    return (_mass_center == other._mass_center) &&
+      (_leg_center == other._leg_center) &&
       (_right_leg == other._right_leg) &&
       (_left_leg == other._left_leg);
   }
@@ -279,17 +289,26 @@ public:
     return !(*this == other);
   }
 
-  // calculate every joint abs_p and rotation matrix
+  // calculate every joint abs_p and rotation matrix, assumed leg center is set
   void Forward_kinematics(const Eigen::Vector<scalar, 12>& angle)
   {
     Forward_kinematics_leg(angle.template segment<6>(0), _right_leg);
     Forward_kinematics_leg(angle.template segment<6>(6), _left_leg);
   }
 
-  // inverse kinematics,call Forward_kinematics to set every joint new angle and new rotation matrix and abs position
-  inline void Inverse_kinematics(const Pose<scalar>& leg_center, const Pose<scalar>& right_last, const Pose<scalar>& left_last)
+  void Forward_kinematics(const Eigen::Vector<scalar, 12>& angle,const Pose<scalar>& com)
   {
-    _leg_center = leg_center;
+    _mass_center = com;
+    _leg_center = CalLegCenter();
+    Forward_kinematics_leg(angle.template segment<6>(0), _right_leg);
+    Forward_kinematics_leg(angle.template segment<6>(6), _left_leg);
+  }
+
+  // inverse kinematics,call Forward_kinematics to set every joint new angle and new rotation matrix and abs position
+  inline void Inverse_kinematics(const Pose<scalar>& com, const Pose<scalar>& right_last, const Pose<scalar>& left_last)
+  {
+    _mass_center = com;
+    _leg_center = CalLegCenter();
     Forward_kinematics(Inverse_kinematics_angle(right_last, left_last));
   }
   // inverse kenematic, use pose of leg_center and right and left last joint is enought
@@ -447,6 +466,7 @@ private:
     return angle;
   }
 
+  Pose<scalar> _mass_center;  // center of mass, its parent is global coordiante.
   Pose<scalar> _leg_center;   // center of legs, its parent is global coordinate.
   std::vector<Joint<scalar>> _right_leg;
   std::vector<Joint<scalar>> _left_leg;

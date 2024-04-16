@@ -50,14 +50,14 @@ TEST(kinematics_test, robot_kinematics)
   Eigen::Vector<double, 12> angle;
   angle.setZero();
   rob1.Forward_kinematics(angle);
-  rob2.Inverse_kinematics(rob1.legCenter(), rob1.rightLeg().back(), rob1.leftLeg().back());
+  rob2.Inverse_kinematics(rob1.massCenter(), rob1.rightLeg().back(), rob1.leftLeg().back());
   EXPECT_EQ(rob1, rob2);
 
   for (size_t i = 0;i < 12;++i) {
     angle(i) = M_PI / 2 / (i + 1);
   }
   rob1.Forward_kinematics(angle);
-  rob2.Inverse_kinematics(rob1.legCenter(), rob1.rightLeg().back(), rob1.leftLeg().back());
+  rob2.Inverse_kinematics(rob1.massCenter(), rob1.rightLeg().back(), rob1.leftLeg().back());
   LegRobotEquleT(rob1, rob2);
 
   EXPECT_EQ(rob1, rob2);
@@ -66,6 +66,6 @@ TEST(kinematics_test, robot_kinematics)
     angle(i) = M_PI / (i + 1) - 0.1;
   }
   rob1.Forward_kinematics(angle);
-  rob2.Inverse_kinematics(rob1.legCenter(), rob1.rightLeg().back(), rob1.leftLeg().back());
+  rob2.Inverse_kinematics(rob1.massCenter(), rob1.rightLeg().back(), rob1.leftLeg().back());
   EXPECT_EQ(rob1, rob2);
 }

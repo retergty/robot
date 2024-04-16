@@ -14,7 +14,7 @@ option(TESTING "enable testing" OFF)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
 
-add_executable(robot LegsRobot.cpp LegsRobot.hpp Tree.hpp)
+add_executable(robot LegsRobot.cpp LegsRobot.hpp WalkPatternGen.hpp)
 
 add_library(include_dir INTERFACE)
 
