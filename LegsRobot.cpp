@@ -1,4 +1,5 @@
 #include "LegsRobot.hpp"
+#include "WalkPatternGen.hpp"
 #include <iostream>
 int main()
 {
@@ -17,4 +18,6 @@ int main()
   std::cout << m1 << std::endl;
 
   std::cout << m1 * Eigen::Vector3d::UnitX() << std::endl;
+  WalkPatternGen<double> walk;
+
 }

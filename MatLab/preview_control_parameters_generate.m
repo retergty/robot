@@ -25,7 +25,7 @@ Prv_Time = 1.4;
 N = 1400; % fulture number
 
 % parameters generate
-G_extend = zeros(1,N);
+G_extend = zeros(N,1);
 
 G_extend(1) = -K_extend(1);
 Ac_extend = A_extend - B_extend*K_extend;
@@ -38,45 +38,95 @@ end
 
 fid = fopen('prvctl_parm.txt','w');
 
-fprintf(fid,"sample_time %f\r\n",sample_time);
-fprintf(fid,"Zc %f\r\n",Zc);
+fprintf(fid,"#define PREVIEW_CONTROL_SAMPLE_TIME %f\r\n",sample_time);
+fprintf(fid,"#define PREVIEW_CONTROL_COM_Z %f\r\n",Zc);
 
 [m,n] = size(A);
-fprintf(fid,"A %d %d ",m,n);
+fprintf(fid,"#define PREVIEW_CONTROL_A_ROW %d \r\n",m);
+fprintf(fid,"#define PREVIEW_CONTROL_A_COL %d \r\n",n);
+fprintf(fid,"#define PREVIEW_CONTROL_A_DATA ");
 for i=1:m
-    for j=1:n
-        fprintf(fid,"%.12f ",A(i,j));
+    fprintf(fid,"{");
+    for j=1:n-1
+        fprintf(fid,"%.12f,",A(i,j));
+    end
+    fprintf(fid,"%.12f",A(i,n));
+    fprintf(fid,"}");
+    if(i~=m)
+        fprintf(fid,",");
     end
 end
 fprintf(fid,"\r\n");
 
 [m,n] = size(B);
-fprintf(fid,"B %d %d ",m,n);
+fprintf(fid,"#define PREVIEW_CONTROL_B_ROW %d \r\n",m);
+fprintf(fid,"#define PREVIEW_CONTROL_B_COL %d \r\n",n);
+fprintf(fid,"#define PREVIEW_CONTROL_B_DATA ");
 for i=1:m
-    for j=1:n
-        fprintf(fid,"%.12f ",B(i,j));
+    fprintf(fid,"{");
+    for j=1:n-1
+        fprintf(fid,"%.12f,",B(i,j));
+    end
+    fprintf(fid,"%.12f",B(i,n));
+    fprintf(fid,"}");
+    if(i~=m)
+        fprintf(fid,",");
     end
 end
 fprintf(fid,"\r\n");
 
 [m,n] = size(C);
-fprintf(fid,"C %d %d ",m,n);
+fprintf(fid,"#define PREVIEW_CONTROL_C_ROW %d \r\n",m);
+fprintf(fid,"#define PREVIEW_CONTROL_C_COL %d \r\n",n);
+fprintf(fid,"#define PREVIEW_CONTROL_C_DATA ");
 for i=1:m
-    for j=1:n
-        fprintf(fid,"%.12f ",C(i,j));
+    fprintf(fid,"{");
+    for j=1:n-1
+        fprintf(fid,"%.12f,",C(i,j));
+    end
+    fprintf(fid,"%.12f",C(i,n));
+    fprintf(fid,"}");
+    if(i~=m)
+        fprintf(fid,",");
     end
 end
 fprintf(fid,"\r\n");
 
-fprintf(fid,"G %d 1 ",N);
-for i=1:N
-    fprintf(fid,"%.12f ",G_extend(i));
+m = N;
+n = 1;
+fprintf(fid,"#define PREVIEW_CONTROL_G_ROW %d \r\n",m);
+fprintf(fid,"#define PREVIEW_CONTROL_G_COL %d \r\n",n);
+fprintf(fid,"#define PREVIEW_CONTROL_G_DATA ");
+for i=1:m
+    fprintf(fid,"{");
+    for j=1:n-1
+        fprintf(fid,"%.12f,",G_extend(i,j));
+    end
+    fprintf(fid,"%.12f",G_extend(i,n));
+    fprintf(fid,"}");
+    if(i~=m)
+        fprintf(fid,",");
+    end
 end
 fprintf(fid,"\r\n");
 
-fprintf(fid,"K 1 4 ");
-for i=1:4
-    fprintf(fid,"%.12f ",K_extend(i));
-end
+fprintf(fid,"#define PREVIEW_CONTROL_PREVIEW_NUMBER %d \r\n",N);
 
+m = 4;
+n = 1;
+fprintf(fid,"#define PREVIEW_CONTROL_K_ROW %d \r\n",m);
+fprintf(fid,"#define PREVIEW_CONTROL_K_COL %d \r\n",n);
+fprintf(fid,"#define PREVIEW_CONTROL_K_DATA ");
+for i=1:m
+    fprintf(fid,"{");
+    for j=1:n-1
+        fprintf(fid,"%.12f,",K_extend(j,i));
+    end
+    fprintf(fid,"%.12f",K_extend(n,i));
+    fprintf(fid,"}");
+    if(i~=m)
+        fprintf(fid,",");
+    end
+end
+fprintf(fid,"\r\n");
 fclose(fid);

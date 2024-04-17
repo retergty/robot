@@ -22,6 +22,7 @@ target_include_directories(include_dir INTERFACE eigen-3.4.0/Eigen ${CMAKE_CURRE
 
 target_link_libraries(robot PRIVATE include_dir)
 
+add_subdirectory(MatLab)
 
 if(TESTING)
   enable_testing()
