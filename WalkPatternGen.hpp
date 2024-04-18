@@ -5,7 +5,8 @@
 #include <iostream>
 #include <fstream>
 #include "prvctl_parm.hpp"
-
+#include <utility>
+#include <type_traits>
 // generate smoothstep behind trajectory, use 4-order polynomial,Tsmooth is total smoothstep time,new_val is new step val.
 // y = a0 + a1*x + a2*x^2 + a3*x^3 + a4*x^4
 template<typename scalar>
@@ -33,6 +34,12 @@ void SmoothStep(std::vector<scalar>& trajectory, const scalar Tsmooth, const sca
   }
 }
 
+template<typename T, typename D = int>
+constexpr bool has_clear = false;
+
+template<typename T>
+constexpr bool has_clear<T, decltype(std::declval<T>().clear(), int())> = true;
+
 template<typename scalar>
 class WalkPatternGen
 {
@@ -41,6 +48,16 @@ private:
   template<typename Type>
   struct xy_dim
   {
+    void clear() {
+      if constexpr (has_clear<Type>) {
+        x.clear();
+        y.clear();
+      }
+      else {
+        x = 0;
+        y = 0;
+      }
+    }
     Type x;
     Type y;
   };
@@ -78,13 +95,70 @@ public:
   // Generate control input, using x y state, zmp in this time, reference zmp in this and future time
   // INPOTANT ASSUMPTION! Inputs are generated in sequence.
   void GenerateInput(const size_t index) {
-    static xy_dim<scalar> input_tmp = { 0,0 };
-    input_tmp.x += -_K(0) * (zmp.x[index] - _ref_zmp.x[index]);
-    input_tmp.y += -_K(0) * (zmp.y[index] - _ref_zmp.y[index]);
-    _input.x[index] = input_tmp.x - _K.tail<3>().dot(_state.x[index]).value();
-    _input.y[index] = input_tmp.y - _K.tail<3>().dot(_state.y[index]).value();
+    _input_tmp.x += -_K(0) * (_zmp.x[index] - _ref_zmp.x[index]);
+    _input_tmp.y += -_K(0) * (_zmp.y[index] - _ref_zmp.y[index]);
+    _input.x[index] = _input_tmp.x - _K.template tail<3>().dot(_state.x[index]).eval();
+    _input.y[index] = _input_tmp.y - _K.template tail<3>().dot(_state.y[index]).eval();
+    for (size_t i = 0;i < _prv_num;++i) {
+      _input.x[index] -= _G[i] * _ref_zmp.x[std::min(i + index + 1, _ref_zmp.x.size() - 1)];
+      _input.y[index] -= _G[i] * _ref_zmp.y[std::min(i + index + 1, _ref_zmp.y.size() - 1)];
+    }
+  }
+
+  //update state, use reference zmp to calculate state vector
+  void UpdateState() {
+    InitState(Eigen::Vector3<scalar>::Zero(), Eigen::Vector3<scalar>::Zero());
+
+    const size_t ref_zmp_size = _ref_zmp.x.size();
+    for (size_t i = 0;i < ref_zmp_size;++i) {
+      scalar zmp_x = (_C * _state.x[i]).eval();
+      scalar zmp_y = (_C * _state.y[i]).eval();
+      _zmp.x.pushback(zmp_x);
+      _zmp.y.pushback(zmp_y);
+
+      GenerateInput(i);
+
+      Eigen::Vector3<scalar> x_next = _A * _state.x[i] + _B * _input.x[i];
+      Eigen::Vector3<scalar> y_next = _A * _state.y[i] + _B * _input.y[i];
+
+      _state.x.pushback(std::move(x_next));
+      _state.y.pushback(std::move(y_next));
+    }
   }
 private:
+  // init state
+  // init zmp
+  // init input
+  void InitState(const Eigen::Vector3<scalar>& x, const Eigen::Vector3<scalar>& y) {
+    // clear all previous datas
+    _state.clear();
+
+    _trajectory.com.clear();
+    _trajectory.left.clear();
+    _trajectory.right.clear();
+
+    _zmp.clear();
+
+    _input.clear();
+    _input_tmp.clear();
+
+    //reserve space
+    size_t cap = _ref_zmp.x.size();
+    _state.x.reserve(cap);
+    _state.y.reserve(cap);
+    _trajectory.com.reserve(cap);
+    _trajectory.left.reserve(cap);
+    _trajectory.right.reserve(cap);
+    _zmp.x.reserve(cap);
+    _zmp.y.reserve(cap);
+    _input.x.reserve(cap);
+    _input.y.reserve(cap);
+
+    //set init state
+    _state.x.pushback(x);
+    _state.y.pushback(y);
+  }
+
   // simulation parmeter
   const scalar _sample_time{ PREVIEW_CONTROL_SAMPLE_TIME };
   const scalar _Zc{ PREVIEW_CONTROL_COM_Z };
@@ -99,6 +173,7 @@ private:
   xy_dim<std::vector<scalar>> _ref_zmp;   // reference zmp
   xy_dim<std::vector<scalar>> _zmp;   // zmp
   xy_dim<std::vector<scalar>> _input; // input
+  xy_dim<scalar> _input_tmp{ 0,0 }; //use to optimatize the calculation of inputs
 
   // com and last left right joint trajectory
   struct
