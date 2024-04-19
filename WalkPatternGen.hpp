@@ -66,8 +66,22 @@ public:
   constexpr static scalar Tstart = 0.3 * Tstep;// a step start time
   constexpr static scalar Tdbl = 0.3 * Tstep; // double support time
   constexpr static scalar Trest = 0.4 * Tstep; //step rest time
+  constexpr static scalar Sx = 0.2;  //step forward 
+  constexpr static scalar Sy = 0.2;  //step width
+  using Vector3 = Eigen::Vector<scalar, 3>;
+  using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
+  enum LEG {
+    RIGHT,
+    LEFT
+  };
 
-  //generate reference zmp of single step 
+  WalkPatternGen(const Vector3& com_position = {0,0,PREVIEW_CONTROL_COM_Z},const Matrix33& com_rotation = Matrix33::Identity()) : _legrobot(com_position,com_rotation){
+    //give reference zmp a init val
+    _ref_zmp.x.push_back(com_position(0));
+    _ref_zmp.y.push_back(com_position(1));
+  }
+
+  //generate reference zmp of single step zmp
   void GenerateAStepZMP(const xy_dim<scalar>& target_zmp, const scalar time_start = Tstart, const scalar time_dbl = Tdbl, const scalar time_rest = Trest) {
     xy_dim<scalar> old_zmp{ .x = _ref_zmp.x.back(),.y = _ref_zmp.y.back() };
     scalar t = _sample_time;
@@ -92,6 +106,44 @@ public:
     }
   }
 
+  //generate a robot step reference zmp,first move zmp to support leg,second move zmp to forward, finally move zmp to center
+  template<LEG leg>
+  void GenerateAStep(const scalar sx = Sx,const scalar sy = Sy){
+    xy_dim<scalar> target_zmp1;
+    if constexpr(leg==LEG::RIGHT){
+      target_zmp1.x = _ref_zmp.x.back();
+      target_zmp1.y = _ref_zmp.y.back() - sy/2;
+    }
+    else {
+      target_zmp1.x = _ref_zmp.x.back();
+      target_zmp1.y = _ref_zmp.y.back() + sy/2;
+    }
+
+    xy_dim<scalar> target_zmp2;
+    if constexpr(leg==LEG::RIGHT){
+      target_zmp2.x = target_zmp1.x + sx;
+      target_zmp2.y = target_zmp1.y + sy;
+    }
+    else {
+      target_zmp2.x = target_zmp1.x + sx;
+      target_zmp2.y = target_zmp1.y - sy;
+    }
+
+    xy_dim<scalar> target_zmp3;
+    if constexpr(leg==LEG::RIGHT){
+      target_zmp3.x = target_zmp2.x;
+      target_zmp3.y = target_zmp2.y - sy/2;
+    }
+    else
+    {
+      target_zmp3.x = target_zmp2.x;
+      target_zmp3.y = target_zmp3.y + sy/2;
+    }
+
+    GenerateAStepZMP(target_zmp1);
+    GenerateAStepZMP(target_zmp2);
+    GenerateAStepZMP(target_zmp3);
+  }
   // Generate control input, using x y state, zmp in this time, reference zmp in this and future time
   // INPOTANT ASSUMPTION! Inputs are generated in sequence.
   void GenerateInput(const size_t index) {
@@ -107,7 +159,11 @@ public:
 
   //update state, use reference zmp to calculate state vector
   void UpdateState() {
-    InitState(Eigen::Vector3<scalar>::Zero(), Eigen::Vector3<scalar>::Zero());
+    Vector3 com_init_position = _legrobot.massCenter().position();
+    Vector3 x_init = {com_init_position(0),0,0};
+    Vector3 y_init = {com_init_position(1),0,0};
+
+    InitState(x_init, y_init);
 
     const size_t ref_zmp_size = _ref_zmp.x.size();
     for (size_t i = 0;i < ref_zmp_size;++i) {
@@ -118,19 +174,16 @@ public:
 
       GenerateInput(i);
 
-      Eigen::Vector3<scalar> x_next = _A * _state.x[i] + _B * _input.x[i];
-      Eigen::Vector3<scalar> y_next = _A * _state.y[i] + _B * _input.y[i];
+      Vector3 x_next = _A * _state.x[i] + _B * _input.x[i];
+      Vector3 y_next = _A * _state.y[i] + _B * _input.y[i];
 
       _state.x.pushback(std::move(x_next));
       _state.y.pushback(std::move(y_next));
     }
   }
 private:
-  // init state
-  // init zmp
-  // init input
-  void InitState(const Eigen::Vector3<scalar>& x, const Eigen::Vector3<scalar>& y) {
-    // clear all previous datas
+  //clear state
+  void ClearState(){
     _state.clear();
 
     _trajectory.com.clear();
@@ -141,6 +194,13 @@ private:
 
     _input.clear();
     _input_tmp.clear();
+  }
+  // init state
+  // init zmp
+  // init input
+  void InitState(const Vector3& x, const Vector3& y) {
+    // clear all previous datas
+    ClearState();
 
     //reserve space
     size_t cap = _ref_zmp.x.size();
@@ -184,10 +244,6 @@ private:
   }_trajectory;
 
   //space state com state
-  struct
-  {
-    std::vector<Eigen::Vector3<scalar>> x; // x, vx, ax
-    std::vector<Eigen::Vector3<scalar>> y; // y, vy, ay
-  }_state;
+  xy_dim<std::vector<Vector3>> _state; //x,vx,ax y,vy,ay
 
 };
