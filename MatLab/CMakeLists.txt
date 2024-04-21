@@ -1,0 +1,8 @@
+if(CMAKE_SYSTEM_NAME MATCHES "Windows.*")
+configure_file(prvctl_parm.txt prvctl_parm.hpp NEWLINE_STYLE WIN32)
+elseif(CMAKE_SYSTEM_NAME MATCHES "CYGWIN.*")
+configure_file(prvctl_parm.txt prvctl_parm.hpp NEWLINE_STYLE WIN32)
+elseif(CMAKE_SYSTEM_NAME MATCHES "CYGWIN.*")
+configure_file(prvctl_parm.txt prvctl_parm.hpp NEWLINE_STYLE UNIX)
+endif()
+target_include_directories(include_dir INTERFACE ${CMAKE_CURRENT_BINARY_DIR})

@@ -3,3 +3,4 @@
 *.code-workspace
 .vs
 MatLab/*.txt
+!MatLab/CmakeLists.txt
