@@ -27,7 +27,7 @@ void SmoothStep(std::vector<scalar>& trajectory, const scalar Tsmooth, const sca
 
   scalar t = sample_time;
 
-  while (t <= Tsmooth)
+  while (t < Tsmooth || isEqual(t,Tsmooth))
   {
     scalar y = a(0) + a(1) * t + a(2) * t * t + a(3) * t * t * t + a(4) * t * t * t * t;
     trajectory.push_back(y);
@@ -109,6 +109,8 @@ private:
   template<typename Type>
   struct xy_dim
   {
+    xy_dim() = default;
+    xy_dim(const Type& in_x, const Type& in_y) :x(in_x), y(in_y) {};
     void clear() {
       if constexpr (has_clear<Type>) {
         x.clear();
@@ -122,21 +124,21 @@ private:
     // Type is container
     template<typename T = Type, std::enable_if_t<has_const_iterator<T>, bool> = true>
     xy_dim<typename T::value_type> operator[](size_t index) const {
-      return { .x = x[index],.y = y[index] };
+      return xy_dim<typename T::value_type>(x[index], y[index]);
     }
     // Type is not container
     template<typename T = Type, std::enable_if_t<!has_const_iterator<T>, bool> = true>
     xy_dim<T> operator[](size_t index) const {
-      return { .x = x,.y = y };
+      return xy_dim<T>(x, y);
     }
     Type x;
     Type y;
   };
 public:
   constexpr static scalar Tstep = 2; //total step time
-  constexpr static scalar Tstart = 0.3 * Tstep;// a step start time
+  constexpr static scalar Tstart = 0.4 * Tstep;// a step start time
   constexpr static scalar Tdbl = 0.3 * Tstep; // double support time
-  constexpr static scalar Trest = 0.4 * Tstep; //step rest time
+  constexpr static scalar Trest = 0.3 * Tstep; //step rest time
   constexpr static scalar Sx = 0.2;  //step forward 
   constexpr static scalar Sy = 0.2;  //step width
   constexpr static scalar ZPeek = 0.1; //axis Z Peek
@@ -155,30 +157,40 @@ public:
 
   //generate reference zmp of single step zmp
   void GenerateAStepZMP(const xy_dim<scalar>& target_zmp, const scalar time_start = Tstart, const scalar time_dbl = Tdbl, const scalar time_rest = Trest) {
-    xy_dim<scalar> old_zmp{ .x = _ref_zmp.x.back(),.y = _ref_zmp.y.back() };
+    xy_dim<scalar> old_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
     scalar t = _sample_time;
 
-    //keep old value
-    while (t <= Tstart) {
-      _ref_zmp.x.push_back(old_zmp.x);
-      _ref_zmp.y.push_back(old_zmp.y);
-      t += _sample_time;
+    if (old_zmp.x != target_zmp.x || old_zmp.y != target_zmp.y) {
+      //keep old value
+      while (t < time_start || isEqual(t,time_start)) {
+        _ref_zmp.x.push_back(old_zmp.x);
+        _ref_zmp.y.push_back(old_zmp.y);
+        t += _sample_time;
+      }
+
+      //smooth step
+      SmoothStep(_ref_zmp.x, time_dbl, target_zmp.x, _sample_time);
+      SmoothStep(_ref_zmp.y, time_dbl, target_zmp.y, _sample_time);
+
+      //keep new value
+      t = _sample_time;
+      while (t < time_rest || isEqual(t,time_rest)) {
+        _ref_zmp.x.push_back(target_zmp.x);
+        _ref_zmp.y.push_back(target_zmp.y);
+        t += _sample_time;
+      }
+
+      //increase step count
+      ++_step_total;
     }
-
-    //smooth step
-    SmoothStep(_ref_zmp.x, time_dbl, target_zmp.x, _sample_time);
-    SmoothStep(_ref_zmp.y, time_dbl, target_zmp.y, _sample_time);
-
-    //keep new value
-    t = _sample_time;
-    while (t <= Trest) {
-      _ref_zmp.x.push_back(target_zmp.x);
-      _ref_zmp.y.push_bask(target_zmp.y);
-      t += _sample_time;
+    else {
+      //keep old value
+      while (t < time_start + time_dbl + time_rest || isEqual(t,time_start + time_dbl + time_rest)) {
+        _ref_zmp.x.push_back(old_zmp.x);
+        _ref_zmp.y.push_back(old_zmp.y);
+        t += _sample_time;
+      }
     }
-
-    //increase step count
-    ++_step_total;
   }
 
   //generate a robot step reference zmp,first move zmp to support leg,second move zmp to forward, finally move zmp to center
@@ -217,7 +229,7 @@ public:
   //generate continuous step
   // leg is first step support leg
   void GenerateContinuousStep(const std::vector<scalar>& sx, const std::vector<scalar>& sy, const LEG first_sup_leg) {
-    xy_dim<scalar> target_zmp = { .x = _ref_zmp.x.back(),.y = _ref_zmp.y.back() };
+    xy_dim<scalar> target_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
     size_t factor = 0;
     if (first_sup_leg == LEG::LEFT) {
       ++factor;
@@ -233,16 +245,22 @@ public:
     }
   }
 
+  //generate still step
+  void GenerateStillStep(const scalar time_still) {
+    xy_dim<scalar> old_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
+    GenerateAStepZMP(old_zmp, time_still);
+    return;
+  }
   // Generate control input, using x y state, zmp in this time, reference zmp in this and future time
   // INPOTANT ASSUMPTION! Inputs are generated in sequence.
   void GenerateInput(const size_t index) {
-    _input_tmp.x += -_K(0) * (_zmp.x[index] - _ref_zmp.x[index]);
-    _input_tmp.y += -_K(0) * (_zmp.y[index] - _ref_zmp.y[index]);
-    _input.x[index] = _input_tmp.x - _K.template tail<3>().dot(_state.x[index]).eval();
-    _input.y[index] = _input_tmp.y - _K.template tail<3>().dot(_state.y[index]).eval();
+    _input_tmp.x += -_K_(0) * (_zmp.x[index] - _ref_zmp.x[index]);
+    _input_tmp.y += -_K_(0) * (_zmp.y[index] - _ref_zmp.y[index]);
+    _input.x[index] = _input_tmp.x - _K_.template tail<3>().dot(_state.x[index]);
+    _input.y[index] = _input_tmp.y - _K_.template tail<3>().dot(_state.y[index]);
     for (size_t i = 0;i < _prv_num;++i) {
-      _input.x[index] -= _G[i] * _ref_zmp.x[std::min(i + index + 1, _ref_zmp.x.size() - 1)];
-      _input.y[index] -= _G[i] * _ref_zmp.y[std::min(i + index + 1, _ref_zmp.y.size() - 1)];
+      _input.x[index] -= _G_[i] * _ref_zmp.x[std::min(i + index + 1, _ref_zmp.x.size() - 1)];
+      _input.y[index] -= _G_[i] * _ref_zmp.y[std::min(i + index + 1, _ref_zmp.y.size() - 1)];
     }
   }
 
@@ -256,18 +274,18 @@ public:
 
     const size_t ref_zmp_size = _ref_zmp.x.size();
     for (size_t i = 0;i < ref_zmp_size;++i) {
-      scalar zmp_x = (_C * _state.x[i]).eval();
-      scalar zmp_y = (_C * _state.y[i]).eval();
-      _zmp.x.pushback(zmp_x);
-      _zmp.y.pushback(zmp_y);
+      scalar zmp_x = (_C_ * _state.x[i]).value();
+      scalar zmp_y = (_C_ * _state.y[i]).value();
+      _zmp.x.push_back(zmp_x);
+      _zmp.y.push_back(zmp_y);
 
       GenerateInput(i);
 
-      Vector3 x_next = _A * _state.x[i] + _B * _input.x[i];
-      Vector3 y_next = _A * _state.y[i] + _B * _input.y[i];
+      Vector3 x_next = _A_ * _state.x[i] + _B_ * _input.x[i];
+      Vector3 y_next = _A_ * _state.y[i] + _B_ * _input.y[i];
 
-      _state.x.pushback(std::move(x_next));
-      _state.y.pushback(std::move(y_next));
+      _state.x.push_back(std::move(x_next));
+      _state.y.push_back(std::move(y_next));
     }
   }
 
@@ -290,7 +308,33 @@ public:
 
     typename std::vector<scalar>::difference_type index = GenerateStartTrajectoryPosition();
     while ((index = GenerateAStepTrajectoryPosition(index)) < _ref_zmp.x.size());
-    
+  }
+  template<bool is_x>
+  inline const std::vector<scalar>& GetRefZmp() const {
+    if constexpr (is_x) {
+      return _ref_zmp.x;
+    }
+    else {
+      return _ref_zmp.y;
+    }
+  }
+  template<bool is_x>
+  inline const std::vector<scalar>& GetZmp() const {
+    if constexpr (is_x) {
+      return _zmp.x;
+    }
+    else {
+      return _zmp.y;
+    }
+  }
+  template<bool is_x>
+  inline const std::vector<Vector3>& GetState() const {
+    if constexpr (is_x) {
+      return _state.x;
+    }
+    else {
+      return _state.y;
+    }
   }
 private:
   //clear state
@@ -331,8 +375,8 @@ private:
     _input.y.reserve(cap);
 
     //set init state
-    _state.x.pushback(x);
-    _state.y.pushback(y);
+    _state.x.push_back(x);
+    _state.y.push_back(y);
   }
 
   //generate state trajetory
@@ -502,12 +546,12 @@ private:
   // simulation parmeter
   const scalar _sample_time{ PREVIEW_CONTROL_SAMPLE_TIME };
   const scalar _Zc{ PREVIEW_CONTROL_COM_Z };
-  const Eigen::Matrix<scalar, PREVIEW_CONTROL_A_ROW, PREVIEW_CONTROL_A_COL> _A{ PREVIEW_CONTROL_A_DATA };
-  const Eigen::Matrix<scalar, PREVIEW_CONTROL_B_ROW, PREVIEW_CONTROL_B_COL> _B{ PREVIEW_CONTROL_B_DATA };
-  const Eigen::Matrix<scalar, PREVIEW_CONTROL_C_ROW, PREVIEW_CONTROL_C_COL> _C{ PREVIEW_CONTROL_C_DATA };
+  const Eigen::Matrix<scalar, PREVIEW_CONTROL_A_ROW, PREVIEW_CONTROL_A_COL> _A_{ PREVIEW_CONTROL_A_DATA };
+  const Eigen::Matrix<scalar, PREVIEW_CONTROL_B_ROW, PREVIEW_CONTROL_B_COL> _B_{ PREVIEW_CONTROL_B_DATA };
+  const Eigen::Matrix<scalar, PREVIEW_CONTROL_C_ROW, PREVIEW_CONTROL_C_COL> _C_{ PREVIEW_CONTROL_C_DATA };
   const size_t _prv_num{ PREVIEW_CONTROL_PREVIEW_NUMBER };
-  const Eigen::Matrix<scalar, PREVIEW_CONTROL_G_ROW, PREVIEW_CONTROL_G_COL>  _G{ PREVIEW_CONTROL_G_DATA };
-  const Eigen::Matrix<scalar, PREVIEW_CONTROL_K_ROW, PREVIEW_CONTROL_K_COL> _K{ PREVIEW_CONTROL_K_DATA };
+  const Eigen::Matrix<scalar, PREVIEW_CONTROL_G_ROW, PREVIEW_CONTROL_G_COL>  _G_{ PREVIEW_CONTROL_G_DATA };
+  const Eigen::Matrix<scalar, PREVIEW_CONTROL_K_ROW, PREVIEW_CONTROL_K_COL> _K_{ PREVIEW_CONTROL_K_DATA };
 
   LegsRobot<scalar> _legrobot;
 

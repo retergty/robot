@@ -4,12 +4,14 @@ add_subdirectory(googletest)
 add_executable(kinematics kinematics_test.cpp)
 add_executable(basic basic_test.cpp)
 add_executable(jacobian jacobian_test.cpp)
+add_executable(state state_test.cpp)
 
 
 set(test_targets
     kinematics
     basic
-    jacobian)
+    jacobian
+    state)
 
 foreach(test_target IN LISTS test_targets)
   get_property(target_srcs TARGET ${test_target} PROPERTY SOURCES)
