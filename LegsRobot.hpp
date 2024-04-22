@@ -196,9 +196,9 @@ public:
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
 
-  constexpr static scalar hip_length = 0.06;  // hip length in meters
-  constexpr static scalar thigh_length = 0.1; // thigh length in meters
-  constexpr static scalar shank_length = 0.15; //shank length in meters
+  constexpr static scalar hip_length = 0.1;  // hip length in meters
+  constexpr static scalar thigh_length = 0.08; // thigh length in meters
+  constexpr static scalar shank_length = 0.1; //shank length in meters
 
   const Vector3 leg_center_relative_to_com = { 0,0,-0.05 }; //center of leg relative to center of mass in center of mass coordinate
 
