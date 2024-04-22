@@ -8,6 +8,7 @@
 #include <utility>
 #include <type_traits>
 #include <iterator>
+#include "RobotParamDef.hpp"
 // generate smoothstep behind trajectory, use 4-order polynomial,Tsmooth is total smoothstep time,new_val is new step val.
 // y = a0 + a1*x + a2*x^2 + a3*x^3 + a4*x^4
 template<typename scalar>
@@ -138,13 +139,13 @@ private:
     Type y;
   };
 public:
-  constexpr static scalar Tstep = 2; //total step time
-  constexpr static scalar Tstart = 0.4 * Tstep;// a step start time
-  constexpr static scalar Tdbl = 0.3 * Tstep; // double support time
-  constexpr static scalar Trest = 0.3 * Tstep; //step rest time
-  constexpr static scalar Sx = 0.2;  //step forward 
-  constexpr static scalar Sy = 0.2;  //step width
-  constexpr static scalar ZPeek = 0.1; //axis Z Peek
+  constexpr static scalar Tstep = param::STEP_TIME; //total step time
+  constexpr static scalar Tstart = param::START_SCALAR * Tstep;// a step start time
+  constexpr static scalar Tdbl = param::DBL_SCALAR * Tstep; // double support time
+  constexpr static scalar Trest = param::REST_SCALAR * Tstep; //step rest time
+  constexpr static scalar Sx = param::STEP_LENGTH;  //step forward 
+  constexpr static scalar Sy = param::STEP_WIDTH; //step width
+
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
   enum LEG {
@@ -238,7 +239,7 @@ public:
     if (first_sup_leg == LEG::LEFT) {
       ++factor;
     }
-    for (int i = 0;i < sx.size();++i) {
+    for (size_t i = 0;i < sx.size();++i) {
       target_zmp.x += sx[i];
       if (factor % 2)
         target_zmp.y += sy[i];
@@ -309,6 +310,19 @@ public:
     typename std::vector<scalar>::difference_type index = GenerateStartTrajectoryPosition();
     while ((index = GenerateAStepTrajectoryPosition(index)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
   }
+  //generate walk angle
+  std::vector<Eigen::Vector<scalar, 12>> GenerateWalkAngle() {
+    std::vector<Eigen::Vector<scalar, 12>> angle;
+    Eigen::Vector<scalar, 12> now_angle;
+    for (size_t i = 0;i < _trajectory.com.size();++i) {
+      _legrobot.Inverse_kinematics(_trajectory.com[i], _trajectory.left[i], _trajectory.right[i]);
+      now_angle.template head<6>() = _legrobot.rightLegAngle();
+      now_angle.template tail<6>() = _legrobot.leftLegAngle();
+      angle.push_back(now_angle);
+    }
+    return angle;
+  }
+
   template<bool is_x>
   inline const std::vector<scalar>& GetRefZmp() const {
     if constexpr (is_x) {
@@ -433,6 +447,9 @@ private:
     //support leg exchange
     _now_support = (_now_support == LEG::LEFT) ? LEG::RIGHT : LEG::LEFT;
 
+    //start step is a step
+    ++_step_count;
+
     return support_index + 1;
   }
 
@@ -449,7 +466,7 @@ private:
     auto next_steady_index = std::min(std::distance(_ref_zmp.x.begin(), next_steady_x_it), std::distance(_ref_zmp.y.begin(), next_steady_y_it));
     auto last_old_index = std::min(std::distance(_ref_zmp.x.begin(), last_old_x_it), std::distance(_ref_zmp.y.begin(), last_old_y_it));
     xy_dim<scalar> target_foot_place;
-    if (_step_count == (_step_total - 1)) {
+    if (_step_count == _step_total - 1) {
       //last step
       xy_dim<scalar> zmp = _ref_zmp[next_steady_index];
       Vector3 support_foot_position;
@@ -474,7 +491,7 @@ private:
     }
     else {
       //no moving
-      GenerateDoubleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index);
+      GenerateStillTrajectoryPosition(zmp_begin_index, last_old_index);
     }
 
     return next_steady_index + 1;
@@ -555,6 +572,22 @@ private:
     }
     //support leg exchange
     _now_support = (_now_support == LEG::LEFT) ? LEG::RIGHT : LEG::LEFT;
+  }
+
+  //Generate Still trajectory
+  void GenerateStillTrajectoryPosition(
+    typename std::vector<scalar>::difference_type zmp_start_index,
+    typename std::vector<scalar>::difference_type zmp_end_index) {
+    Pose<scalar> right_last_pose = _trajectory.right.back();
+    Pose<scalar> left_last_pose = _trajectory.left.back();
+    Pose<scalar> com_last_pose = _trajectory.com.back();
+
+    for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
+      _trajectory.com.push_back(com_last_pose);
+      _trajectory.right.push_back(right_last_pose);
+      _trajectory.left.push_back(left_last_pose);
+      _trajectory.support.push_back(LEG::TWO);
+    }
   }
 
   // simulation parmeter

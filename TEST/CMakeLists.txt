@@ -6,14 +6,15 @@ add_executable(basic basic_test.cpp)
 add_executable(jacobian jacobian_test.cpp)
 add_executable(state state_test.cpp)
 add_executable(trajectory trajectory_test.cpp)
-
+add_executable(angle angle_test.cpp)
 
 set(test_targets
     kinematics
     basic
     jacobian
     state
-    trajectory)
+    trajectory
+    angle)
 
 foreach(test_target IN LISTS test_targets)
   get_property(target_srcs TARGET ${test_target} PROPERTY SOURCES)

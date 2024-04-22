@@ -7,6 +7,7 @@
 #include <math.h>
 #include <iostream>
 #include "HelperFunction.h"
+#include "RobotParamDef.hpp"
 
 template<typename scalar>
 struct Pose;
@@ -196,17 +197,17 @@ public:
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
 
-  constexpr static scalar hip_length = 0.1;  // hip length in meters
-  constexpr static scalar thigh_length = 0.08; // thigh length in meters
-  constexpr static scalar shank_length = 0.1; //shank length in meters
+  constexpr static scalar hip_length = param::HIP_LENGTH;  // hip length in meters
+  constexpr static scalar thigh_length = param::THIGH_LENGTH; // thigh length in meters
+  constexpr static scalar shank_length = param::SHANK_LENGTH; //shank length in meters
 
-  const Vector3 leg_center_relative_to_com = { 0,0,-0.05 }; //center of leg relative to center of mass in center of mass coordinate
+  const Vector3 leg_center_relative_to_com = { param::LEG_CENTER_RELATIVE_TO_COM_X,param::LEG_CENTER_RELATIVE_TO_COM_Y,param::LEG_CENTER_RELATIVE_TO_COM_Z }; //center of leg relative to center of mass in center of mass coordinate
 
   enum LEG {
     RIGHT,
     LEFT
   };
-  LegsRobot(const Vector3& com_position =  { 0,0,0.23 },const Matrix33& com_rotation = Matrix33::Identity()) : _mass_center(com_position,com_rotation)
+  LegsRobot(const Vector3& com_position = { param::COM_X,param::COM_Y,param::COM_Z }, const Matrix33& com_rotation = Matrix33::Identity()) : _mass_center(com_position, com_rotation)
   {
     const Vector3 leg_center_position = _mass_center.position() + _mass_center.rotation() * leg_center_relative_to_com;
     _leg_center = Pose<scalar>(leg_center_position, _mass_center.rotation());
@@ -254,20 +255,20 @@ public:
   }
 
   //get leg center
-  inline Pose<scalar> massCenter() const{ return _mass_center; };
+  inline Pose<scalar> massCenter() const { return _mass_center; };
   inline Pose<scalar> legCenter() const { return _leg_center; };
   inline const std::vector<Joint<scalar>>& rightLeg() const { return _right_leg; };
   inline const std::vector<Joint<scalar>>& leftLeg() const { return _left_leg; };
+  inline Pose<scalar> CalLegCenter() const {
+    return Pose<scalar>(_mass_center.position() + _mass_center.rotation() * leg_center_relative_to_com, _mass_center.rotation());
+  }
+  
   Eigen::Vector<scalar, Eigen::Dynamic> rightLegAngle() const {
     Eigen::Vector<scalar, Eigen::Dynamic> angle(_right_leg.size());
     for (size_t i = 0;i < _right_leg.size();++i) {
       angle(i) = _right_leg[i].angle();
     }
     return angle;
-  }
-
-  inline Pose<scalar> CalLegCenter() const {
-    return Pose<scalar>(_mass_center.position() + _mass_center.rotation() * leg_center_relative_to_com, _mass_center.rotation());
   }
 
   Eigen::Vector<scalar, Eigen::Dynamic> leftLegAngle() const {
@@ -277,6 +278,9 @@ public:
     }
     return angle;
   }
+
+  inline Eigen::Matrix<scalar, 6, Eigen::Dynamic> JacobianRight() const { return _jacobian_right; };
+  inline Eigen::Matrix<scalar, 6, Eigen::Dynamic> JacobianLeft() const { return _jacobian_left; };
 
   bool operator==(const LegsRobot<scalar>& other) const
   {
@@ -297,7 +301,7 @@ public:
     Forward_kinematics_leg(angle.template segment<6>(6), _left_leg);
   }
 
-  void Forward_kinematics(const Eigen::Vector<scalar, 12>& angle,const Pose<scalar>& com)
+  void Forward_kinematics(const Eigen::Vector<scalar, 12>& angle, const Pose<scalar>& com)
   {
     _mass_center = com;
     _leg_center = CalLegCenter();
@@ -405,10 +409,9 @@ public:
     return ang_rate;
   }
 
-  Eigen::Matrix<scalar, 6, Eigen::Dynamic> JacobianRight() { return _jacobian_right; };
-  Eigen::Matrix<scalar, 6, Eigen::Dynamic> JacobianLeft() { return _jacobian_left; };
 
   friend std::ostream& operator<<<scalar>(std::ostream& os, const LegsRobot<scalar>& robot);
+
 private:
   void Forward_kinematics_leg(const Eigen::Vector<scalar, 6>& angle, std::vector<Joint<scalar>>& leg)
   {

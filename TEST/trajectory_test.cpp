@@ -8,7 +8,7 @@ protected:
     walk1.GenerateStillStep(WalkPatternGen<double>::Tstep);
 
     walk2.GenerateContinuousStep(sx, sy, WalkPatternGen<double>::LEG::RIGHT);
-    walk1.GenerateStillStep(WalkPatternGen<double>::Tstep);
+    walk2.GenerateStillStep(WalkPatternGen<double>::Tstep);
 
     walk1.UpdateState();
     walk2.UpdateState();
