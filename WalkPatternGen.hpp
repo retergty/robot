@@ -47,7 +47,7 @@ Eigen::Vector<scalar, 5> FourPolyCurveParm(const scalar T, const Eigen::Vector<s
   return A.colPivHouseholderQr().solve(b);
 }
 
-template<typename scalar,typename time>
+template<typename scalar, typename time>
 inline scalar FourPolyCurve(const Eigen::Vector<scalar, 5> a, const time t) {
   return a(0) + a(1) * t + a(2) * t * t + a(3) * t * t * t + a(4) * t * t * t * t;
 }
@@ -297,13 +297,9 @@ public:
   void GenerateTrajectoryPosition() {
     //get robot initial com,right leg,left leg
     Vector3 robot_com = _legrobot.massCenter().position();
-    Vector3 robot_right_last = _legrobot.rightLeg().back().position();
-    Vector3 robot_left_last = _legrobot.leftLeg().back().position();
 
     //get initial state and ref_zmp zmp
     xy_dim<Vector3> init_state = _state[0];
-    xy_dim<scalar> init_ref_zmp = _ref_zmp[0];
-    xy_dim<scalar> init_zmp = _zmp[0];
 
     //initial center of mass must fit robot center of mass
     assert(isEqual(init_state.x(0), robot_com(0)));
@@ -311,7 +307,7 @@ public:
     assert(isEqual(_Zc, robot_com(2)));
 
     typename std::vector<scalar>::difference_type index = GenerateStartTrajectoryPosition();
-    while ((index = GenerateAStepTrajectoryPosition(index)) < _ref_zmp.x.size());
+    while ((index = GenerateAStepTrajectoryPosition(index)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
   }
   template<bool is_x>
   inline const std::vector<scalar>& GetRefZmp() const {
@@ -353,7 +349,7 @@ public:
     return _trajectory.support;
   }
 private:
-  //clear state
+  //clear state,but keep ref_zmp and relative var
   void ClearState() {
     _state.clear();
 
@@ -368,7 +364,6 @@ private:
     _input_tmp.clear();
 
     _step_count = 0;
-    _step_total = 0;
   }
   // init state
   // init zmp
@@ -404,8 +399,6 @@ private:
     auto next_x_it = SearchNextSteadyValue(_ref_zmp.x.begin(), _ref_zmp.x.end());
     auto next_y_it = SearchNextSteadyValue(_ref_zmp.y.begin(), _ref_zmp.y.end());
 
-    LEG sup_leg;
-
     size_t support_index = std::min(std::distance(_ref_zmp.x.begin(), next_x_it), std::distance(_ref_zmp.y.begin(), next_y_it));
     xy_dim<scalar> support_leg_position = _ref_zmp[support_index];
     Pose<scalar> robot_right_last = _legrobot.rightLeg().back();
@@ -413,12 +406,14 @@ private:
 
     //decide support leg
     if (isEqual(support_leg_position.x, robot_right_last.position()(0)) && isEqual(support_leg_position.y, robot_right_last.position()(1))) {
-      //support leg is right leg
-      sup_leg = LEG::RIGHT;
+      //next support leg is right leg
+      //set now support to left
+      _now_support = LEG::LEFT;
     }
     else if (isEqual(support_leg_position.x, robot_left_last.position()(0)) && isEqual(support_leg_position.y, robot_left_last.position()(1))) {
-      //support leg is left leg
-      sup_leg = LEG::LEFT;
+      //next support leg is left leg
+      // set now support to right
+      _now_support = LEG::RIGHT;
     }
     else {
       assert(0);
@@ -432,8 +427,12 @@ private:
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
       _trajectory.right.push_back(robot_right_last);
       _trajectory.left.push_back(robot_left_last);
-      _trajectory.support.push_back(sup_leg);
+      _trajectory.support.push_back(LEG::TWO);
     }
+
+    //support leg exchange
+    _now_support = (_now_support == LEG::LEFT) ? LEG::RIGHT : LEG::LEFT;
+
     return support_index + 1;
   }
 
@@ -454,7 +453,7 @@ private:
       //last step
       xy_dim<scalar> zmp = _ref_zmp[next_steady_index];
       Vector3 support_foot_position;
-      if (_trajectory.support.back() == LEG::LEFT) {
+      if (_now_support == LEG::LEFT) {
         support_foot_position = _trajectory.left.back().position();
       }
       else {
@@ -468,9 +467,10 @@ private:
     }
 
 
-    if (last_old_index < _ref_zmp.x.size() - 1) {
+    if (last_old_index < static_cast<decltype(last_old_index)>(_ref_zmp.x.size() - 1)) {
       GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place);
       GenerateDoubleFootSupportTrajectoryPosition(last_old_index + 1, next_steady_index);
+      ++_step_count;
     }
     else {
       //no moving
@@ -486,15 +486,14 @@ private:
     const xy_dim<scalar>& target_foot_place
   ) {
     //generate single foot support period
-    LEG now_support = _trajectory.support.back();
     Vector3 swing_leg_position;
     Pose<scalar> support_leg_pose;
 
-    if (now_support == LEG::LEFT) {
+    if (_now_support == LEG::LEFT) {
       swing_leg_position = _trajectory.right.back().position();
       support_leg_pose = _trajectory.left.back();
     }
-    else if (now_support == LEG::RIGHT) {
+    else if (_now_support == LEG::RIGHT) {
       swing_leg_position = _trajectory.left.back().position();
       support_leg_pose = _trajectory.right.back();
     }
@@ -511,11 +510,11 @@ private:
     const Matrix33 robot_rotation = _legrobot.massCenter().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
       swing_leg_position = { FourPolyCurve(ax,i - zmp_start_index),FourPolyCurve(ay,i - zmp_start_index),FourPolyCurve(az,i - zmp_start_index) };
-      if (now_support == LEG::LEFT) {
+      if (_now_support == LEG::LEFT) {
         _trajectory.left.push_back(support_leg_pose);
         _trajectory.right.emplace_back(swing_leg_position, robot_rotation);
       }
-      else if (now_support == LEG::RIGHT) {
+      else if (_now_support == LEG::RIGHT) {
         _trajectory.right.push_back(support_leg_pose);
         _trajectory.left.emplace_back(swing_leg_position, robot_rotation);
       }
@@ -523,7 +522,7 @@ private:
       xy_dim<Vector3> now_state = _state[i];
       Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
-      _trajectory.support.push_back(now_support);
+      _trajectory.support.push_back(_now_support);
     }
   }
 
@@ -532,31 +531,30 @@ private:
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index
   ) {
-    LEG now_support = _trajectory.support.back();
-    LEG new_support = (_trajectory.support.back() == LEG::LEFT) ? LEG::RIGHT : LEG::LEFT;
     Pose<scalar> right_last_pose = _trajectory.right.back();
     Pose<scalar> left_last_pose = _trajectory.left.back();
     xy_dim<scalar> zmp_start = _zmp[zmp_start_index];
 
     //check zmp in support foot
-    if (now_support == LEG::RIGHT) {
-      assert(isEqual(right_last_pose.position()(0), zmp_start.x,1e-2));
-      assert(isEqual(right_last_pose.position()(1), zmp_start.y,1e-2));
+    if (_now_support == LEG::RIGHT) {
+      assert(isEqual(right_last_pose.position()(0), zmp_start.x, 1e-2));
+      assert(isEqual(right_last_pose.position()(1), zmp_start.y, 1e-2));
     }
     else {
-      assert(isEqual(left_last_pose.position()(0), zmp_start.x,1e-2));
-      assert(isEqual(left_last_pose.position()(1), zmp_start.y,1e-2));
+      assert(isEqual(left_last_pose.position()(0), zmp_start.x, 1e-2));
+      assert(isEqual(left_last_pose.position()(1), zmp_start.y, 1e-2));
     }
     Matrix33 robot_rotation = _trajectory.com.back().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
       xy_dim<Vector3> now_state = _state[i];
       Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
-      _trajectory.support.push_back(new_support);
       _trajectory.right.push_back(right_last_pose);
       _trajectory.left.push_back(left_last_pose);
+      _trajectory.support.push_back(LEG::TWO);
     }
-
+    //support leg exchange
+    _now_support = (_now_support == LEG::LEFT) ? LEG::RIGHT : LEG::LEFT;
   }
 
   // simulation parmeter
@@ -575,8 +573,8 @@ private:
   xy_dim<std::vector<scalar>> _zmp;   // zmp
   xy_dim<std::vector<scalar>> _input; // input
   xy_dim<scalar> _input_tmp{ 0,0 }; //use to optimatize the calculation of inputs
-  size_t _step_total = 0;
-  size_t _step_count = 0;
+  size_t _step_total = 0; //count for how many times _ref_zmp changed
+  size_t _step_count = 0;//count for how many times walk patterns are changed
   // com and last left right joint trajectory
   struct
   {
@@ -585,8 +583,8 @@ private:
     std::vector<Pose<scalar>> left;
     std::vector<LEG> support; //support leg
   }_trajectory;
-  LEG _last_support; //last support leg
-  
+  LEG _now_support; //last support leg
+
   //space state com state
   xy_dim<std::vector<Vector3>> _state; //x,vx,ax y,vy,ay
 
