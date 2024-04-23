@@ -19,7 +19,7 @@ add_executable(lejurobot lejurobot.cpp LegsRobot.hpp WalkPatternGen.hpp RobotPar
 
 add_library(include_dir INTERFACE)
 
-target_include_directories(include_dir INTERFACE eigen-3.4.0/Eigen ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(include_dir INTERFACE eigen-3.4.0/Eigen "${CMAKE_CURRENT_SOURCE_DIR}")
 
 target_link_libraries(simulation PRIVATE include_dir)
 target_link_libraries(lejurobot PRIVATE include_dir)

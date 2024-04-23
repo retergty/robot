@@ -23,5 +23,5 @@ protected:
 };
 
 TEST_F(AngleTest, walk1_angle_test) {
-  std::vector<Eigen::Vector<double, 12>> angle = walk1.GenerateWalkAngle();
+  std::vector<Eigen::Vector<double, 12>> angle = walk1.GetWalkAngle();
 }

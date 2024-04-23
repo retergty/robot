@@ -36,10 +36,9 @@ for i=2:N
     X_extend = Ac_extend'*X_extend;
 end
 
-fid = fopen('prvctl_parm.txt','w');
+fid = fopen('preview_control_parameters_generate.txt','w');
 fprintf(fid,"#pragma once \r\n");
 fprintf(fid,"#define PREVIEW_CONTROL_SAMPLE_TIME %f\r\n",sample_time);
-fprintf(fid,"#define PREVIEW_CONTROL_COM_Z %f\r\n",Zc);
 
 [m,n] = size(A);
 fprintf(fid,"#define PREVIEW_CONTROL_A_ROW %d \r\n",m);

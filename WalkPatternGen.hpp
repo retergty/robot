@@ -154,7 +154,7 @@ public:
     TWO
   };
 
-  WalkPatternGen(const Vector3& com_position = { 0,0,PREVIEW_CONTROL_COM_Z }, const Matrix33& com_rotation = Matrix33::Identity()) : _legrobot(com_position, com_rotation) {
+  WalkPatternGen(const Vector3& com_position = { 0,0,_Zc }, const Matrix33& com_rotation = Matrix33::Identity()) : _legrobot(com_position, com_rotation) {
     //give reference zmp a init val
     _ref_zmp.x.push_back(com_position(0));
     _ref_zmp.y.push_back(com_position(1));
@@ -591,8 +591,8 @@ private:
   }
 
   // simulation parmeter
-  const scalar _sample_time{ PREVIEW_CONTROL_SAMPLE_TIME };
-  const scalar _Zc{ PREVIEW_CONTROL_COM_Z };
+  constexpr static scalar _sample_time{ PREVIEW_CONTROL_SAMPLE_TIME };
+  constexpr static scalar _Zc{ param::COM_Z };
   const Eigen::Matrix<scalar, PREVIEW_CONTROL_A_ROW, PREVIEW_CONTROL_A_COL> _A_{ PREVIEW_CONTROL_A_DATA };
   const Eigen::Matrix<scalar, PREVIEW_CONTROL_B_ROW, PREVIEW_CONTROL_B_COL> _B_{ PREVIEW_CONTROL_B_DATA };
   const Eigen::Matrix<scalar, PREVIEW_CONTROL_C_ROW, PREVIEW_CONTROL_C_COL> _C_{ PREVIEW_CONTROL_C_DATA };
