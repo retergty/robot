@@ -39,14 +39,14 @@ std::string GenerateFormatStiffness(const Eigen::Vector<u_short, 5> &right_leg, 
   oss << "RIGIDA," << left_leg(4) << "," << left_leg(3) << "," << left_leg(2) << "," << left_leg(1) << "," << left_leg(0) << std::endl;
   oss << "RIGIDB," << right_leg(4) << "," << right_leg(3) << "," << right_leg(2) << "," << right_leg(1) << "," << right_leg(0) << std::endl;
   oss << "RIGIDC," << left_hand(2) << "," << left_hand(1) << "," << left_hand(0) << std::endl;
-  oss << "RIGIDC," << right_hand(2) << "," << right_hand << "," << right_hand(0) << std::endl;
+  oss << "RIGIDD," << right_hand(2) << "," << right_hand << "," << right_hand(0) << std::endl;
   oss << "RIGIDE," << remote_motor(2) << "," << remote_motor(1) << "," << remote_motor(0) << std::endl;
   oss << "RIGEND" << std::endl;
   return oss.str();
 }
 
-template <typename ios, typename scalar>
-void GenerateFormatBodyToFile(ios &os,
+template <typename scalar>
+void GenerateFormatBodyTo(std::iostream &os,
                               const std::vector<Eigen::Vector<scalar, 12>> &leg_angle, const std::vector<Eigen::Vector<scalar, 3>> &right_hand,
                               const std::vector<Eigen::Vector<scalar, 3>> &left_hand, const std::vector<Eigen::Vector<scalar, 3>> &remote_motor)
 {
@@ -64,8 +64,8 @@ void GenerateFormatBodyToFile(ios &os,
   return;
 }
 // only generate walk, keep other motor as before
-template <typename ios, typename scalar>
-void GenerateFormatWalkToFile(ios &os,
+template <typename scalar>
+void GenerateFormatWalkTo(std::iostream &os,
                               const std::vector<Eigen::Vector<scalar, 12>> &leg_angle, const Eigen::Vector<scalar, 3> &right_hand,
                               const Eigen::Vector<scalar, 3> &left_hand, const Eigen::Vector<scalar, 3> &remote_motor)
 {
@@ -87,5 +87,10 @@ int main()
   walk1.UpdateState();
   walk1.GenerateTrajectoryPosition();
 
+  Eigen::Vector<double,3> right_hand {80,30,100};
+  Eigen::Vector<double,3> left_hand {80,30,100};
+  Eigen::Vector<double,3> remote_hand {128,71,100};
+  GenerateFormatBodyTo(std::cout,walk1.GetWalkAngle(),right_hand,left_hand,remote_hand);
+  return;
   return 0;
 }

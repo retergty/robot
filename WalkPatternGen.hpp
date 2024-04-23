@@ -311,7 +311,7 @@ public:
     while ((index = GenerateAStepTrajectoryPosition(index)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
   }
   //generate walk angle
-  std::vector<Eigen::Vector<scalar, 12>> GenerateWalkAngle() {
+  std::vector<Eigen::Vector<scalar, 12>> GetWalkAngle() {
     std::vector<Eigen::Vector<scalar, 12>> angle;
     Eigen::Vector<scalar, 12> now_angle;
     for (size_t i = 0;i < _trajectory.com.size();++i) {
