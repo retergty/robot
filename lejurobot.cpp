@@ -39,7 +39,7 @@ std::string GenerateFormatStiffness(const Eigen::Vector<unsigned short, 5>& righ
   oss << "RIGIDA," << left_leg(4) << "," << left_leg(3) << "," << left_leg(2) << "," << left_leg(1) << "," << left_leg(0) << std::endl;
   oss << "RIGIDB," << right_leg(4) << "," << right_leg(3) << "," << right_leg(2) << "," << right_leg(1) << "," << right_leg(0) << std::endl;
   oss << "RIGIDC," << left_hand(2) << "," << left_hand(1) << "," << left_hand(0) << std::endl;
-  oss << "RIGIDD," << right_hand(2) << "," << right_hand << "," << right_hand(0) << std::endl;
+  oss << "RIGIDD," << right_hand(2) << "," << right_hand(1) << "," << right_hand(0) << std::endl;
   oss << "RIGIDE," << remote_motor(2) << "," << remote_motor(1) << "," << remote_motor(0) << std::endl;
   oss << "RIGEND" << std::endl;
   return oss.str();
