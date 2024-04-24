@@ -3,7 +3,7 @@ close all;
 % Robotic constants defination
 sample_time = 0.001;
 g = 9.8;
-Zc = 0.23;
+Zc = 0.2;
 
 % discreate space state parameters
 A = [1 sample_time sample_time^2/2; 0 1 sample_time;0 0 1];
@@ -49,8 +49,8 @@ StepTime = 2;
 StartTime = 0.4 * StepTime;
 RestTime = 0.3 * StepTime;
 DblTime = 0.3 * StepTime;
-ZMPx_StepLength = 0.2;
-ZMPy_StepLength = 0.2;
+ZMPx_StepLength = 0.08;
+ZMPy_StepLength = 0.05;
 
 Ref_ZMPx = zeros(1,COUNT);
 Ref_ZMPy = zeros(1,COUNT);

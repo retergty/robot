@@ -207,9 +207,50 @@ public:
     RIGHT,
     LEFT
   };
-  LegsRobot(const Vector3& com_position = { param::COM_X,param::COM_Y,param::COM_Z }, const Matrix33& com_rotation = Matrix33::Identity()) : _mass_center(com_position, com_rotation)
+  LegsRobot(const Vector3& com_position = { param::COM_X,param::COM_Y,param::COM_Z }, const Matrix33& com_rotation = Matrix33::Identity()):_mass_center(com_position, com_rotation)
   {
+    Vector3 com_position_straigt = { 0,0,param::SHANK_LENGTH + param::THIGH_LENGTH - param::LEG_CENTER_RELATIVE_TO_COM_Z };
+    const Vector3 leg_center_position = com_position_straigt + com_rotation * leg_center_relative_to_com;
+
+    _leg_center = Pose<scalar>(leg_center_position, com_rotation);
+
+    const Vector3 right_hip_rel_p{ 0,-hip_length,0 };
+    const Vector3 left_hip_rel_p = -right_hip_rel_p;
+
+    const Vector3 right_thigh_rel_p = { 0,0,-thigh_length };
+    const Vector3 left_thigh_rel_p = right_thigh_rel_p;
+
+    const Vector3 right_shank_rel_p = { 0,0,-shank_length };
+    const Vector3 left_shank_rel_p = right_shank_rel_p;
+
+    _right_leg.emplace_back(right_hip_rel_p, Vector3::UnitZ(), 0, _leg_center); // J2
+    _left_leg.emplace_back(left_hip_rel_p, Vector3::UnitZ(), 0, _leg_center); // J8
+
+    _right_leg.emplace_back(Vector3::Zero(), Vector3::UnitX(), 0, _right_leg.back()); // J3
+    _left_leg.emplace_back(Vector3::Zero(), Vector3::UnitX(), 0, _left_leg.back()); // J9
+
+    _right_leg.emplace_back(Vector3::Zero(), Vector3::UnitY(), 0, _right_leg.back()); // J4
+    _left_leg.emplace_back(Vector3::Zero(), Vector3::UnitY(), 0, _left_leg.back()); // J10
+
+    _right_leg.emplace_back(right_thigh_rel_p, Vector3::UnitY(), 0, _right_leg.back()); // J5
+    _left_leg.emplace_back(left_thigh_rel_p, Vector3::UnitY(), 0, _left_leg.back()); // J11
+
+    _right_leg.emplace_back(right_shank_rel_p, Vector3::UnitY(), 0, _right_leg.back()); // J6
+    _left_leg.emplace_back(left_shank_rel_p, Vector3::UnitY(), 0, _left_leg.back());// J12
+
+    _right_leg.emplace_back(Vector3::Zero(), Vector3::UnitX(), 0, _right_leg.back()); // J7
+    _left_leg.emplace_back(Vector3::Zero(), Vector3::UnitX(), 0, _left_leg.back()); // J13
+
+    _jacobian_right.resize(6, _right_leg.size());
+    _jacobian_left.resize(6, _left_leg.size());
+
+    // do inverse kinematics
+    Inverse_kinematics(_mass_center, _right_leg.back(), _left_leg.back());
+  }
+
+  LegsRobot(const Vector3& com_position, const Matrix33& com_rotation, const Eigen::Vector<scalar, 12>& angle) :_mass_center(com_position, com_rotation) {
     const Vector3 leg_center_position = _mass_center.position() + _mass_center.rotation() * leg_center_relative_to_com;
+
     _leg_center = Pose<scalar>(leg_center_position, _mass_center.rotation());
 
     const Vector3 right_hip_rel_p{ 0,-hip_length,0 };
@@ -241,6 +282,9 @@ public:
 
     _jacobian_right.resize(6, _right_leg.size());
     _jacobian_left.resize(6, _left_leg.size());
+
+    //do forward kinematics
+    Forward_kinematics(angle);
   }
 
   //copy constuctor
@@ -262,7 +306,7 @@ public:
   inline Pose<scalar> CalLegCenter() const {
     return Pose<scalar>(_mass_center.position() + _mass_center.rotation() * leg_center_relative_to_com, _mass_center.rotation());
   }
-  
+
   Eigen::Vector<scalar, Eigen::Dynamic> rightLegAngle() const {
     Eigen::Vector<scalar, Eigen::Dynamic> angle(_right_leg.size());
     for (size_t i = 0;i < _right_leg.size();++i) {

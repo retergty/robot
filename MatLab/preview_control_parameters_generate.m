@@ -3,7 +3,7 @@ close all;
 % Robotic constants defination
 sample_time = 0.001;
 g = 9.8;
-Zc = 0.23;
+Zc = 0.2;
 
 % discreate space state parameters
 A = [1 sample_time sample_time^2/2; 0 1 sample_time;0 0 1];
@@ -39,6 +39,7 @@ end
 fid = fopen('preview_control_parameters_generate.txt','w');
 fprintf(fid,"#pragma once \r\n");
 fprintf(fid,"#define PREVIEW_CONTROL_SAMPLE_TIME %f\r\n",sample_time);
+fprintf(fid,"#define PREVIEW_CONTROL_ACC_G %f\r\n",g);
 
 [m,n] = size(A);
 fprintf(fid,"#define PREVIEW_CONTROL_A_ROW %d \r\n",m);

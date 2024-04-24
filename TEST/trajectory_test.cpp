@@ -18,8 +18,8 @@ protected:
   }
   WalkPatternGen<double> walk1;
   WalkPatternGen<double> walk2;
-  std::vector<double> sx = { 0,0.2,0.2,0.2,0 };
-  std::vector<double> sy = { 0.1,0.2,0.2,0.2,0.1 };
+  std::vector<double> sx = { 0,param::STEP_LENGTH,param::STEP_LENGTH,param::STEP_LENGTH,0 };
+  std::vector<double> sy = { param::STEP_WIDTH/2,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH/2 };
 };
 TEST_F(WalkTest, walk1_trajectory_test) {
   const std::vector<Pose<double>>& com = walk1.GetTrajectoryCom();

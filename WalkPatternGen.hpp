@@ -154,7 +154,11 @@ public:
     TWO
   };
 
-  WalkPatternGen(const Vector3& com_position = { 0,0,_Zc }, const Matrix33& com_rotation = Matrix33::Identity()) : _legrobot(com_position, com_rotation) {
+  WalkPatternGen(const Vector3& com_position = { 0,0,param::COM_Z }, const Matrix33& com_rotation = Matrix33::Identity()) : _legrobot(com_position, com_rotation) {
+    _Zc = com_position(2);
+    _C_(0) = 1;
+    _C_(1) = 0;
+    _C_(2) = -com_position(2) / PREVIEW_CONTROL_ACC_G;
     //give reference zmp a init val
     _ref_zmp.x.push_back(com_position(0));
     _ref_zmp.y.push_back(com_position(1));
@@ -315,7 +319,7 @@ public:
     std::vector<Eigen::Vector<scalar, 12>> angle;
     Eigen::Vector<scalar, 12> now_angle;
     for (size_t i = 0;i < _trajectory.com.size();++i) {
-      _legrobot.Inverse_kinematics(_trajectory.com[i], _trajectory.left[i], _trajectory.right[i]);
+      _legrobot.Inverse_kinematics(_trajectory.com[i], _trajectory.right[i], _trajectory.left[i]);
       now_angle.template head<6>() = _legrobot.rightLegAngle();
       now_angle.template tail<6>() = _legrobot.leftLegAngle();
       angle.push_back(now_angle);
@@ -592,10 +596,10 @@ private:
 
   // simulation parmeter
   constexpr static scalar _sample_time{ PREVIEW_CONTROL_SAMPLE_TIME };
-  constexpr static scalar _Zc{ param::COM_Z };
+  scalar _Zc;
   const Eigen::Matrix<scalar, PREVIEW_CONTROL_A_ROW, PREVIEW_CONTROL_A_COL> _A_{ PREVIEW_CONTROL_A_DATA };
   const Eigen::Matrix<scalar, PREVIEW_CONTROL_B_ROW, PREVIEW_CONTROL_B_COL> _B_{ PREVIEW_CONTROL_B_DATA };
-  const Eigen::Matrix<scalar, PREVIEW_CONTROL_C_ROW, PREVIEW_CONTROL_C_COL> _C_{ PREVIEW_CONTROL_C_DATA };
+  Eigen::Matrix<scalar, PREVIEW_CONTROL_C_ROW, PREVIEW_CONTROL_C_COL> _C_{ PREVIEW_CONTROL_C_DATA };
   const size_t _prv_num{ PREVIEW_CONTROL_PREVIEW_NUMBER };
   const Eigen::Matrix<scalar, PREVIEW_CONTROL_G_ROW, PREVIEW_CONTROL_G_COL>  _G_{ PREVIEW_CONTROL_G_DATA };
   const Eigen::Matrix<scalar, PREVIEW_CONTROL_K_ROW, PREVIEW_CONTROL_K_COL> _K_{ PREVIEW_CONTROL_K_DATA };
