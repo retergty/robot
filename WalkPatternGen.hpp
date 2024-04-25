@@ -579,15 +579,19 @@ private:
   }
 
   //Generate Still trajectory
+  //do not need to calculate foot placement, but com may be move because last step moving may not be finish
   void GenerateStillTrajectoryPosition(
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index) {
     Pose<scalar> right_last_pose = _trajectory.right.back();
     Pose<scalar> left_last_pose = _trajectory.left.back();
-    Pose<scalar> com_last_pose = _trajectory.com.back();
 
+    Matrix33 robot_rotation = _trajectory.com.back().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
-      _trajectory.com.push_back(com_last_pose);
+      xy_dim<Vector3> now_state = _state[i];
+      Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
+
+      _trajectory.com.emplace_back(now_com_position, robot_rotation);
       _trajectory.right.push_back(right_last_pose);
       _trajectory.left.push_back(left_last_pose);
       _trajectory.support.push_back(LEG::TWO);

@@ -1,7 +1,7 @@
 #pragma once
 namespace param
 {
-  constexpr double HIP_LENGTH = 0.025;
+  constexpr double HIP_LENGTH = 0.030;
   constexpr double THIGH_LENGTH = 0.065;
   constexpr double SHANK_LENGTH = 0.1;
   constexpr double LEG_CENTER_RELATIVE_TO_COM_Z = -0.035;

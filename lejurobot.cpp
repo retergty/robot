@@ -14,15 +14,15 @@ constexpr scalar LEFT_LEG_ANGLE_ZERO_POINT[5] = { 100,60,200,55,100 };
 template<typename scalar>
 constexpr scalar RIGHT_LEG_ANGLE_ZERO_POINT[5] = { 100,60,200,55,100 };
 template<typename scalar>
-constexpr scalar LEFT_LEG_ANGLE_COF[5] = { -1,-1,-1,-1,-1 };
+constexpr scalar LEFT_LEG_ANGLE_COF[5] = { 1,-1,-1,-1,1 };
 template<typename scalar>
 constexpr scalar RIGHT_LEG_ANGLE_COF[5] = { -1,-1,-1,-1,-1 };
 
 template<typename scalar>
 constexpr scalar LEJU_COM_Z_FALL_DOWN = 0.018;
 
-constexpr size_t SPEED_DEFAULT = 40;
-constexpr unsigned short STIFFNESS_DEFAULT = 40;
+constexpr size_t SPEED_DEFAULT = 80;
+constexpr unsigned short STIFFNESS_DEFAULT = 50;
 
 template<typename scalar>
 inline scalar LejuMotorAngle(scalar angle, scalar angle_cof, scalar angle_zero_point) { return angle_cof * angle + angle_zero_point; };
@@ -96,7 +96,7 @@ void GenerateFormatWalkTo(std::ostream& os,
   const Eigen::Vector<unsigned short, 5>& stiffness_leg = Eigen::Vector<unsigned short, 5>::Constant(STIFFNESS_DEFAULT);
   const Eigen::Vector<unsigned short, 3>& stiffness_hand = Eigen::Vector<unsigned short, 3>::Constant(STIFFNESS_DEFAULT);
   os << GenerateFormatStiffness(stiffness_leg, stiffness_leg, stiffness_hand, stiffness_hand, stiffness_hand);
-  for (size_t i = 0; i < leg_angle.size(); i += 15)
+  for (size_t i = 0; i < leg_angle.size(); i += 40)
   {
     os << GenerateFormatAngle((leg_angle[i].template segment<5>(1).array() * Rad2Deg<double>).matrix().eval(), (leg_angle[i].template segment<5>(7).array() * Rad2Deg<double>).matrix().eval(), right_hand, left_hand, remote_motor);
   }
@@ -110,6 +110,12 @@ int main()
   walk1.UpdateState();
   walk1.GenerateTrajectoryPosition();
   std::vector<Eigen::Vector<double, 12>> walk1_angle = walk1.GetWalkAngle();
+  std::vector<double> right_last_angle;
+  std::vector<double> left_last_angle;
+  for (size_t i = 0;i < walk1_angle.size();++i) {
+    right_last_angle.push_back(walk1_angle[i](5)* 180/M_PI);
+    left_last_angle.push_back(walk1_angle[i](11)* 180/M_PI);
+  }
   Eigen::Vector<double, 3> right_hand{ 80,30,100 };
   Eigen::Vector<double, 3> left_hand{ 80,30,100 };
   Eigen::Vector<double, 3> remote_hand{ 128,71,100 };

@@ -50,7 +50,7 @@ StartTime = 0.4 * StepTime;
 RestTime = 0.3 * StepTime;
 DblTime = 0.3 * StepTime;
 ZMPx_StepLength = 0.08;
-ZMPy_StepLength = 0.05;
+ZMPy_StepLength = 0.06;
 
 Ref_ZMPx = zeros(1,COUNT);
 Ref_ZMPy = zeros(1,COUNT);
