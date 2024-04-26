@@ -10,6 +10,9 @@
 #include <iterator>
 #include "RobotParamDef.hpp"
 #include <cmath>
+#include "HelperFunction.h"
+#include "TrajectoryGenMethod.hpp"
+
 // generate smoothstep behind trajectory, use 4-order polynomial,Tsmooth is total smoothstep time,new_val is new step val.
 // y = a0 + a1*x + a2*x^2 + a3*x^3 + a4*x^4
 template<typename scalar>
@@ -35,23 +38,6 @@ void SmoothStep(std::vector<scalar>& trajectory, const scalar Tsmooth, const sca
     trajectory.push_back(y);
     t += sample_time;
   }
-}
-// t=0,t=T/2,t=T,t=0,t=T
-template<typename scalar>
-Eigen::Vector<scalar, 5> FourPolyCurveParm(const scalar T, const Eigen::Vector<scalar, 5>& b) {
-  Eigen::Matrix<scalar, 5, 5> A{
-    {1,0,0,0,0},
-    {1,T / 2,T * T / 4,T * T * T / 8,T * T * T * T / 16},
-    {1,T,T * T,T * T * T,T * T * T * T},
-    {0,1,0,0,0},
-    {0,1,2 * T,3 * T * T,4 * T * T * T}
-  };
-  return A.colPivHouseholderQr().solve(b);
-}
-
-template<typename scalar, typename time>
-inline scalar FourPolyCurve(const Eigen::Vector<scalar, 5> a, const time t) {
-  return a(0) + a(1) * t + a(2) * t * t + a(3) * t * t * t + a(4) * t * t * t * t;
 }
 
 //start in begin, end right before last,search next different and steady value
@@ -94,51 +80,10 @@ Iterator SearchLastOldVale(Iterator begin, Iterator last)
   return last_steady;
 }
 
-template<typename T, typename D = int>
-constexpr bool has_clear = false;
-
-template<typename T>
-constexpr bool has_clear<T, decltype(std::declval<T>().clear(), int())> = true;
-
-template<typename T, typename D = void>
-constexpr bool has_const_iterator = false;
-
-template<typename T>
-constexpr bool has_const_iterator<T, std::void_t<typename T::const_iterator>> = true;
-
 template<typename scalar>
 class WalkPatternGen
 {
-private:
-  // walk pattern
-  template<typename Type>
-  struct xy_dim
-  {
-    xy_dim() = default;
-    xy_dim(const Type& in_x, const Type& in_y) :x(in_x), y(in_y) {};
-    void clear() {
-      if constexpr (has_clear<Type>) {
-        x.clear();
-        y.clear();
-      }
-      else {
-        x = 0;
-        y = 0;
-      }
-    }
-    // Type is container
-    template<typename T = Type, std::enable_if_t<has_const_iterator<T>, bool> = true>
-    xy_dim<typename T::value_type> operator[](size_t index) const {
-      return xy_dim<typename T::value_type>(x[index], y[index]);
-    }
-    // Type is not container
-    template<typename T = Type, std::enable_if_t<!has_const_iterator<T>, bool> = true>
-    xy_dim<T> operator[](size_t index) const {
-      return xy_dim<T>(x, y);
-    }
-    Type x;
-    Type y;
-  };
+// walk pattern
 public:
   constexpr static scalar Tstep = param::STEP_TIME; //total step time
   constexpr static scalar Tstart = param::START_SCALAR * Tstep;// a step start time
@@ -368,6 +313,9 @@ public:
   inline const std::vector<LEG>& GetTrajectorySupportLeg()const {
     return _trajectory.support;
   }
+
+  typedef void (*leg_trajectory_generation_method_p)(typename std::vector<scalar>::difference_type, typename std::vector<scalar>::difference_type, std::vector<Pose<scalar>>&, const xy_dim<scalar>&);
+
 private:
   //clear state,but keep ref_zmp and relative var
   void ClearState() {
@@ -503,46 +451,30 @@ private:
   void GenerateSingleFootSupportTrajectoryPosition(
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index,
-    const xy_dim<scalar>& target_foot_place
+    const xy_dim<scalar>& target_foot_place,
+    leg_trajectory_generation_method_p swing_leg_gen_fun = &FourOrderPolynomial<scalar>
   ) {
     //generate single foot support period
     Vector3 swing_leg_position;
     Pose<scalar> support_leg_pose;
 
     if (_now_support == LEG::LEFT) {
-      swing_leg_position = _trajectory.right.back().position();
+      swing_leg_gen_fun(zmp_start_index, zmp_end_index, _trajectory.right, target_foot_place);
       support_leg_pose = _trajectory.left.back();
     }
     else if (_now_support == LEG::RIGHT) {
-      swing_leg_position = _trajectory.left.back().position();
+      swing_leg_gen_fun(zmp_start_index, zmp_end_index, _trajectory.left, target_foot_place);
       support_leg_pose = _trajectory.right.back();
     }
 
-    Eigen::Vector<scalar, 5> bx = { swing_leg_position(0),(target_foot_place.x + swing_leg_position(0)) / 2,target_foot_place.x,0,0 };
-    Eigen::Vector<scalar, 5> by = { swing_leg_position(1),(target_foot_place.y + swing_leg_position(1)) / 2,target_foot_place.y,0,0 };
-    Eigen::Vector<scalar, 5> bz = { swing_leg_position(2),(target_foot_place.x - swing_leg_position(0)) / 3 + swing_leg_position(2),swing_leg_position(2),0,0 };
-
-    const scalar Swing_leg_land_index = zmp_end_index - SwingLegPreserveIndex;
-    const scalar DiscT = Swing_leg_land_index - zmp_start_index + 1;
-
-    Eigen::Vector<scalar, 5> ax = FourPolyCurveParm(DiscT, bx);
-    Eigen::Vector<scalar, 5> ay = FourPolyCurveParm(DiscT, by);
-    Eigen::Vector<scalar, 5> az = FourPolyCurveParm(DiscT, bz);
-
     const Matrix33 robot_rotation = _legrobot.massCenter().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
-      if (i <= Swing_leg_land_index) {
-        swing_leg_position = { FourPolyCurve(ax,i - zmp_start_index),FourPolyCurve(ay,i - zmp_start_index),FourPolyCurve(az,i - zmp_start_index) };
-      }
       if (_now_support == LEG::LEFT) {
         _trajectory.left.push_back(support_leg_pose);
-        _trajectory.right.emplace_back(swing_leg_position, robot_rotation);
       }
       else if (_now_support == LEG::RIGHT) {
         _trajectory.right.push_back(support_leg_pose);
-        _trajectory.left.emplace_back(swing_leg_position, robot_rotation);
       }
-
       xy_dim<Vector3> now_state = _state[i];
       Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
