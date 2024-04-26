@@ -425,13 +425,13 @@ private:
     //decide support leg
     if (isEqual(support_leg_position.x, robot_right_last.position()(0)) && isEqual(support_leg_position.y, robot_right_last.position()(1))) {
       //next support leg is right leg
-      //set now support to left
-      _now_support = LEG::LEFT;
+      //set now support to right
+      _now_support = LEG::RIGHT;
     }
     else if (isEqual(support_leg_position.x, robot_left_last.position()(0)) && isEqual(support_leg_position.y, robot_left_last.position()(1))) {
       //next support leg is left leg
-      // set now support to right
-      _now_support = LEG::RIGHT;
+      // set now support to left
+      _now_support = LEG::LEFT;
     }
     else {
       assert(0);
@@ -447,9 +447,6 @@ private:
       _trajectory.left.push_back(robot_left_last);
       _trajectory.support.push_back(LEG::TWO);
     }
-
-    //support leg exchange
-    _now_support = (_now_support == LEG::LEFT) ? LEG::RIGHT : LEG::LEFT;
 
     //start step is a step
     ++_step_count;
@@ -579,7 +576,7 @@ private:
   }
 
   //Generate Still trajectory
-  //do not need to calculate foot placement, but com may be move because last step moving may not be finish
+  //do not need to calculate foot placement, but center of mass may be move because last step moving may not be finish
   void GenerateStillTrajectoryPosition(
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index) {
