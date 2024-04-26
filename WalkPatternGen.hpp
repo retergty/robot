@@ -9,6 +9,7 @@
 #include <type_traits>
 #include <iterator>
 #include "RobotParamDef.hpp"
+#include <cmath>
 // generate smoothstep behind trajectory, use 4-order polynomial,Tsmooth is total smoothstep time,new_val is new step val.
 // y = a0 + a1*x + a2*x^2 + a3*x^3 + a4*x^4
 template<typename scalar>
@@ -145,6 +146,7 @@ public:
   constexpr static scalar Trest = param::REST_SCALAR * Tstep; //step rest time
   constexpr static scalar Sx = param::STEP_LENGTH;  //step forward 
   constexpr static scalar Sy = param::STEP_WIDTH; //step width
+  constexpr static long SwingLegPreserveIndex = std::floor(Tstart / PREVIEW_CONTROL_SAMPLE_TIME * 0.05);//use to generate swing leg trajectory, leave some times between single leg period and double leg period
 
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
@@ -523,14 +525,18 @@ private:
     Eigen::Vector<scalar, 5> by = { swing_leg_position(1),(target_foot_place.y + swing_leg_position(1)) / 2,target_foot_place.y,0,0 };
     Eigen::Vector<scalar, 5> bz = { swing_leg_position(2),(target_foot_place.x - swing_leg_position(0)) / 3 + swing_leg_position(2),swing_leg_position(2),0,0 };
 
-    const scalar DiscT = zmp_end_index - zmp_start_index + 1;
+    const scalar Swing_leg_land_index = zmp_end_index - SwingLegPreserveIndex;
+    const scalar DiscT = Swing_leg_land_index - zmp_start_index + 1;
+
     Eigen::Vector<scalar, 5> ax = FourPolyCurveParm(DiscT, bx);
     Eigen::Vector<scalar, 5> ay = FourPolyCurveParm(DiscT, by);
     Eigen::Vector<scalar, 5> az = FourPolyCurveParm(DiscT, bz);
 
     const Matrix33 robot_rotation = _legrobot.massCenter().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
-      swing_leg_position = { FourPolyCurve(ax,i - zmp_start_index),FourPolyCurve(ay,i - zmp_start_index),FourPolyCurve(az,i - zmp_start_index) };
+      if (i <= Swing_leg_land_index) {
+        swing_leg_position = { FourPolyCurve(ax,i - zmp_start_index),FourPolyCurve(ay,i - zmp_start_index),FourPolyCurve(az,i - zmp_start_index) };
+      }
       if (_now_support == LEG::LEFT) {
         _trajectory.left.push_back(support_leg_pose);
         _trajectory.right.emplace_back(swing_leg_position, robot_rotation);
