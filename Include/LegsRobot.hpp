@@ -1,12 +1,11 @@
 #pragma once
 #include "Dense"
 #include "Geometry"
-#include "../unsupported/Eigen/MatrixFunctions"
 #include <vector>
 #include <list>
 #include <math.h>
 #include <iostream>
-#include "HelperFunction.h"
+#include "HelperFunction.hpp"
 #include "RobotParamDef.hpp"
 
 template<typename scalar>

@@ -10,7 +10,7 @@
 #include <iterator>
 #include "RobotParamDef.hpp"
 #include <cmath>
-#include "HelperFunction.h"
+#include "HelperFunction.hpp"
 #include "TrajectoryGenMethod.hpp"
 
 // generate smoothstep behind trajectory, use 4-order polynomial,Tsmooth is total smoothstep time,new_val is new step val.
@@ -92,7 +92,8 @@ public:
   constexpr static scalar Sx = param::STEP_LENGTH;  //step forward 
   constexpr static scalar Sy = param::STEP_WIDTH; //step width
   constexpr static long SwingLegPreserveIndex = std::floor(Tstart / PREVIEW_CONTROL_SAMPLE_TIME * 0.05);//use to generate swing leg trajectory, leave some times between single leg period and double leg period
-
+  typedef void (*leg_trajectory_generation_method_p)(typename std::vector<scalar>::difference_type, typename std::vector<scalar>::difference_type, std::vector<Pose<scalar>>&, const xy_dim<scalar>&);
+  
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
   enum LEG {
@@ -246,7 +247,7 @@ public:
   }
 
   //generate trajectory potition,using ref_zmp and state
-  void GenerateTrajectoryPosition() {
+  void GenerateTrajectoryPosition(leg_trajectory_generation_method_p swing_leg_gen = &FourOrderPolynomial<scalar>) {
     //get robot initial com,right leg,left leg
     Vector3 robot_com = _legrobot.massCenter().position();
 
@@ -259,7 +260,7 @@ public:
     assert(isEqual(_Zc, robot_com(2)));
 
     typename std::vector<scalar>::difference_type index = GenerateStartTrajectoryPosition();
-    while ((index = GenerateAStepTrajectoryPosition(index)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
+    while ((index = GenerateAStepTrajectoryPosition(index,swing_leg_gen)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
   }
   //generate walk angle
   std::vector<Eigen::Vector<scalar, 12>> GetWalkAngle() {
@@ -313,8 +314,6 @@ public:
   inline const std::vector<LEG>& GetTrajectorySupportLeg()const {
     return _trajectory.support;
   }
-
-  typedef void (*leg_trajectory_generation_method_p)(typename std::vector<scalar>::difference_type, typename std::vector<scalar>::difference_type, std::vector<Pose<scalar>>&, const xy_dim<scalar>&);
 
 private:
   //clear state,but keep ref_zmp and relative var
@@ -408,7 +407,7 @@ private:
   // zmp_begin_index is step start index
   // return next step start index
   typename std::vector<scalar>::difference_type
-    GenerateAStepTrajectoryPosition(typename std::vector<scalar>::difference_type zmp_begin_index) {
+    GenerateAStepTrajectoryPosition(typename std::vector<scalar>::difference_type zmp_begin_index,leg_trajectory_generation_method_p swing_leg_gen) {
     auto last_old_x_it = SearchLastOldVale(_ref_zmp.x.begin() + zmp_begin_index, _ref_zmp.x.end());
     auto last_old_y_it = SearchLastOldVale(_ref_zmp.y.begin() + zmp_begin_index, _ref_zmp.y.end());
     auto next_steady_x_it = SearchNextSteadyValue(_ref_zmp.x.begin() + zmp_begin_index, _ref_zmp.x.end());
@@ -436,7 +435,7 @@ private:
 
 
     if (last_old_index < static_cast<decltype(last_old_index)>(_ref_zmp.x.size() - 1)) {
-      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place);
+      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place,swing_leg_gen);
       GenerateDoubleFootSupportTrajectoryPosition(last_old_index + 1, next_steady_index);
       ++_step_count;
     }
@@ -452,18 +451,18 @@ private:
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index,
     const xy_dim<scalar>& target_foot_place,
-    leg_trajectory_generation_method_p swing_leg_gen_fun = &FourOrderPolynomial<scalar>
-  ) {
+    leg_trajectory_generation_method_p swing_leg_gen
+    ) {
     //generate single foot support period
     Vector3 swing_leg_position;
     Pose<scalar> support_leg_pose;
 
     if (_now_support == LEG::LEFT) {
-      swing_leg_gen_fun(zmp_start_index, zmp_end_index, _trajectory.right, target_foot_place);
+      swing_leg_gen(zmp_start_index, zmp_end_index, _trajectory.right, target_foot_place);
       support_leg_pose = _trajectory.left.back();
     }
     else if (_now_support == LEG::RIGHT) {
-      swing_leg_gen_fun(zmp_start_index, zmp_end_index, _trajectory.left, target_foot_place);
+      swing_leg_gen(zmp_start_index, zmp_end_index, _trajectory.left, target_foot_place);
       support_leg_pose = _trajectory.right.back();
     }
 

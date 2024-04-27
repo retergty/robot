@@ -14,12 +14,12 @@ option(TESTING "enable testing" OFF)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
 
-add_executable(simulation LegsRobot.cpp LegsRobot.hpp WalkPatternGen.hpp RobotParamDef.hpp)
-add_executable(lejurobot lejurobot.cpp LegsRobot.hpp WalkPatternGen.hpp RobotParamDef.hpp)
-add_executable(Calculateinitialcom CalculateInitialCom.cpp LegsRobot.hpp WalkPatternGen.hpp RobotParamDef.hpp)
+add_executable(simulation LegsRobot.cpp)
+add_executable(lejurobot lejurobot.cpp)
+add_executable(Calculateinitialcom CalculateInitialCom.cpp)
 add_library(include_dir INTERFACE)
 
-target_include_directories(include_dir INTERFACE eigen-3.4.0/Eigen "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(include_dir INTERFACE eigen-3.4.0/Eigen Include)
 
 target_link_libraries(simulation PRIVATE include_dir)
 target_link_libraries(lejurobot PRIVATE include_dir)
