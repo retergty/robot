@@ -22,7 +22,7 @@ template<typename scalar>
 constexpr scalar LEJU_COM_Z_FALL_DOWN = 0.018;
 
 constexpr size_t SPEED_DEFAULT = 80;
-constexpr unsigned short STIFFNESS_DEFAULT = 50;
+constexpr unsigned short STIFFNESS_DEFAULT = 60;
 
 template<typename scalar>
 inline scalar LejuMotorAngle(scalar angle, scalar angle_cof, scalar angle_zero_point) { return angle_cof * angle + angle_zero_point; };
@@ -96,7 +96,7 @@ void GenerateFormatWalkTo(std::ostream& os,
   const Eigen::Vector<unsigned short, 5>& stiffness_leg = Eigen::Vector<unsigned short, 5>::Constant(STIFFNESS_DEFAULT);
   const Eigen::Vector<unsigned short, 3>& stiffness_hand = Eigen::Vector<unsigned short, 3>::Constant(STIFFNESS_DEFAULT);
   os << GenerateFormatStiffness(stiffness_leg, stiffness_leg, stiffness_hand, stiffness_hand, stiffness_hand);
-  for (size_t i = 0; i < leg_angle.size(); i += 50)
+  for (size_t i = 0; i < leg_angle.size(); i += 60)
   {
     os << GenerateFormatAngle((leg_angle[i].template segment<5>(1).array() * Rad2Deg<double>).matrix().eval(), (leg_angle[i].template segment<5>(7).array() * Rad2Deg<double>).matrix().eval(), right_hand, left_hand, remote_motor);
   }

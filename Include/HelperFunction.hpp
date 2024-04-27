@@ -4,7 +4,7 @@
 #include "Core"
 
 template<typename scalar>
-bool isEqual(scalar lhs, scalar rhs, scalar presision = 1e-5)
+bool isEqual(scalar lhs, scalar rhs, double presision = 1e-5)
 {
   return (std::abs<scalar>(lhs - rhs) <= presision);
 }
@@ -61,3 +61,14 @@ struct xy_dim
   Type x;
   Type y;
 };
+
+template <unsigned int p,typename scalar = double>
+constexpr scalar IntPower(const scalar x)
+{
+  if constexpr (p == 0) return 1;
+  if constexpr (p == 1) return x;
+
+  scalar tmp = IntPower<p / 2>(x);
+  if constexpr ((p % 2) == 0) { return tmp * tmp; }
+  else { return x * tmp * tmp; }
+}

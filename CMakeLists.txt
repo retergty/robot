@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 option(TESTING "enable testing" OFF)
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -Wall")
-
+set(CMAKE_CXX_FLAGS "-m64 -Wa,-mbig-obj")
 add_executable(simulation LegsRobot.cpp)
 add_executable(lejurobot lejurobot.cpp)
 add_executable(Calculateinitialcom CalculateInitialCom.cpp)
