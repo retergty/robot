@@ -83,7 +83,7 @@ Iterator SearchLastOldVale(Iterator begin, Iterator last)
 template<typename scalar>
 class WalkPatternGen
 {
-// walk pattern
+  // walk pattern
 public:
   constexpr static scalar Tstep = param::STEP_TIME; //total step time
   constexpr static scalar Tstart = param::START_SCALAR * Tstep;// a step start time
@@ -93,7 +93,7 @@ public:
   constexpr static scalar Sy = param::STEP_WIDTH; //step width
   constexpr static long SwingLegPreserveIndex = std::floor(Tstart / PREVIEW_CONTROL_SAMPLE_TIME * 0.05);//use to generate swing leg trajectory, leave some times between single leg period and double leg period
   typedef void (*leg_trajectory_generation_method_p)(typename std::vector<scalar>::difference_type, typename std::vector<scalar>::difference_type, std::vector<Pose<scalar>>&, const xy_dim<scalar>&);
-  
+
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
   enum LEG {
@@ -125,9 +125,13 @@ public:
         t += _sample_time;
       }
 
+      _last_single_support_index.push_back(_ref_zmp.x.size() - 1);
+
       //smooth step
       SmoothStep(_ref_zmp.x, time_dbl, target_zmp.x, _sample_time);
       SmoothStep(_ref_zmp.y, time_dbl, target_zmp.y, _sample_time);
+
+      _last_double_support_index.push_back(_ref_zmp.x.size() - 1);
 
       //keep new value
       t = _sample_time;
@@ -260,7 +264,7 @@ public:
     assert(isEqual(_Zc, robot_com(2)));
 
     typename std::vector<scalar>::difference_type index = GenerateStartTrajectoryPosition();
-    while ((index = GenerateAStepTrajectoryPosition(index,swing_leg_gen)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
+    while ((index = GenerateAStepTrajectoryPosition(index, swing_leg_gen)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
   }
   //generate walk angle
   std::vector<Eigen::Vector<scalar, 12>> GetWalkAngle() {
@@ -315,6 +319,13 @@ public:
     return _trajectory.support;
   }
 
+  inline const std::vector<typename std::vector<scalar>::size_type>& GetLastSingleSupportIndex()const {
+    return _last_single_support_index;
+  }
+
+  inline const std::vector<typename std::vector<scalar>::size_type>& GetLastDoubleSupportIndex()const {
+    return _last_double_support_index;
+  }
 private:
   //clear state,but keep ref_zmp and relative var
   void ClearState() {
@@ -355,6 +366,10 @@ private:
     //set init state
     _state.x.push_back(x);
     _state.y.push_back(y);
+
+    //set last support index to the end
+    _last_double_support_index.push_back(_ref_zmp.x.size() - 1);
+    _last_single_support_index.push_back(_ref_zmp.x.size() - 1);
   }
 
   //generate state trajetory
@@ -363,10 +378,8 @@ private:
   //return next moving start index
   typename std::vector<scalar>::difference_type GenerateStartTrajectoryPosition() {
 
-    auto next_x_it = SearchNextSteadyValue(_ref_zmp.x.begin(), _ref_zmp.x.end());
-    auto next_y_it = SearchNextSteadyValue(_ref_zmp.y.begin(), _ref_zmp.y.end());
+    size_t support_index = _last_double_support_index[0];
 
-    size_t support_index = std::min(std::distance(_ref_zmp.x.begin(), next_x_it), std::distance(_ref_zmp.y.begin(), next_y_it));
     xy_dim<scalar> support_leg_position = _ref_zmp[support_index];
     Pose<scalar> robot_right_last = _legrobot.rightLeg().back();
     Pose<scalar> robot_left_last = _legrobot.leftLeg().back();
@@ -407,14 +420,11 @@ private:
   // zmp_begin_index is step start index
   // return next step start index
   typename std::vector<scalar>::difference_type
-    GenerateAStepTrajectoryPosition(typename std::vector<scalar>::difference_type zmp_begin_index,leg_trajectory_generation_method_p swing_leg_gen) {
-    auto last_old_x_it = SearchLastOldVale(_ref_zmp.x.begin() + zmp_begin_index, _ref_zmp.x.end());
-    auto last_old_y_it = SearchLastOldVale(_ref_zmp.y.begin() + zmp_begin_index, _ref_zmp.y.end());
-    auto next_steady_x_it = SearchNextSteadyValue(_ref_zmp.x.begin() + zmp_begin_index, _ref_zmp.x.end());
-    auto next_steady_y_it = SearchNextSteadyValue(_ref_zmp.y.begin() + zmp_begin_index, _ref_zmp.y.end());
+    GenerateAStepTrajectoryPosition(typename std::vector<scalar>::difference_type zmp_begin_index, leg_trajectory_generation_method_p swing_leg_gen) {
 
-    auto next_steady_index = std::min(std::distance(_ref_zmp.x.begin(), next_steady_x_it), std::distance(_ref_zmp.y.begin(), next_steady_y_it));
-    auto last_old_index = std::min(std::distance(_ref_zmp.x.begin(), last_old_x_it), std::distance(_ref_zmp.y.begin(), last_old_y_it));
+    auto last_old_index = _last_single_support_index[_step_count];
+    auto next_steady_index = _last_double_support_index[_step_count];
+
     xy_dim<scalar> target_foot_place;
     if (_step_count == _step_total - 1) {
       //last step
@@ -433,9 +443,8 @@ private:
       target_foot_place = _ref_zmp[next_steady_index];
     }
 
-
-    if (last_old_index < static_cast<decltype(last_old_index)>(_ref_zmp.x.size() - 1)) {
-      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place,swing_leg_gen);
+    if (last_old_index < (_ref_zmp.x.size() - 1)) {
+      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place, swing_leg_gen);
       GenerateDoubleFootSupportTrajectoryPosition(last_old_index + 1, next_steady_index);
       ++_step_count;
     }
@@ -452,7 +461,7 @@ private:
     typename std::vector<scalar>::difference_type zmp_end_index,
     const xy_dim<scalar>& target_foot_place,
     leg_trajectory_generation_method_p swing_leg_gen
-    ) {
+  ) {
     //generate single foot support period
     Vector3 swing_leg_position;
     Pose<scalar> support_leg_pose;
@@ -548,8 +557,12 @@ private:
   xy_dim<std::vector<scalar>> _zmp;   // zmp
   xy_dim<std::vector<scalar>> _input; // input
   xy_dim<scalar> _input_tmp{ 0,0 }; //use to optimatize the calculation of inputs
+
+  std::vector<typename std::vector<scalar>::size_type> _last_single_support_index; // last single foot support index in ist step, used in walk generation
+  std::vector<typename std::vector<scalar>::size_type> _last_double_support_index; // last double foot support index in ist step,used in walk generation
+
   size_t _step_total = 0; //count for how many times _ref_zmp changed
-  size_t _step_count = 0;//count for how many times walk patterns are changed
+  size_t _step_count = 0;//count for how many times walk patterns have changed
   // com and last left right joint trajectory
   struct
   {
