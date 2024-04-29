@@ -110,3 +110,17 @@ void SixOrderPolynomial(
     swing_leg.emplace_back(swing_leg_position, swing_leg_rotation);
   }
 }
+
+template<typename scalar,size_t dimen,typename timeType>
+class BaseMethod
+{
+public:
+  BaseMethod(const Eigen::Vector<scalar,dimen>& init,const Eigen::Vector<scalar,dimen>& target,timeType begin,timeType end): _initial(init),_target(target),_begin(begin),_end(end){};
+  virtual ~BaseMethod(){}:
+protect:
+  Eigen::Vector<scalar,dimen> _initial;
+  Eigen::Vector<scalar,dimen> _target;
+  timeType _begin;
+  timeType _end;
+};
+
