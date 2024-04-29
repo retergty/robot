@@ -19,5 +19,5 @@ namespace param
 
   constexpr double STEP_LENGTH = 0.08;
   constexpr double STEP_WIDTH = HIP_LENGTH*2;
-
+  constexpr double STEP_HEIGHT = 0;
 } // namespace robot

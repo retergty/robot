@@ -128,7 +128,7 @@ public:
     scalar time_total) : _initial(init), _target(target), _time_total(time_total) {};
 
   virtual ~BaseMethod() {};
-  virtual Eigen::Vector<scalar, dimens> NowVal(const scalar now_time) = 0;
+  virtual Eigen::Vector<scalar, dimens> NowVal(const scalar now_time) const = 0;
 protected:
   Eigen::Vector<scalar, dimens> _initial;
   Eigen::Vector<scalar, dimens> _target;
@@ -141,6 +141,8 @@ template <typename scalar, size_t dimens, typename calscalar = scalar>
 class FourPolyMethod final : public BaseMethod<scalar, dimens>
 {
 public:
+  using value_type = scalar;
+  using cal_value_type = calscalar;
   FourPolyMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
@@ -167,7 +169,7 @@ public:
     }
   };
 
-  Eigen::Vector<scalar, dimens> NowVal(const scalar now_time) override
+  Eigen::Vector<scalar, dimens> NowVal(const scalar now_time) const override
   {
     Eigen::Vector<scalar, dimens> ret;
     calscalar t = static_cast<calscalar>(now_time);
@@ -186,6 +188,8 @@ template<typename scalar, size_t dimens, typename calscalar = scalar>
 class FivePolyMethod final :public BaseMethod<scalar, dimens>
 {
 public:
+  using value_type = scalar;
+  using cal_value_type = calscalar;
   FivePolyMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
@@ -219,7 +223,7 @@ public:
     }
   }
 
-  Eigen::Vector<scalar, dimens> NowVal(const scalar now) override {
+  Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
     Eigen::Vector<scalar, dimens> ret;
     const calscalar t = static_cast<calscalar>(now);
     for (size_t i = 0;i < dimens;++i) {
@@ -237,6 +241,8 @@ template <typename scalar, size_t dimens, typename calscalar = scalar>
 class SixPolyMethod final :public BaseMethod<scalar, dimens>
 {
 public:
+  using value_type = scalar;
+  using cal_value_type = calscalar;
   SixPolyMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
@@ -271,7 +277,7 @@ public:
     }
   }
 
-  Eigen::Vector<scalar, dimens> NowVal(const scalar now) override {
+  Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
     Eigen::Vector<scalar, dimens> ret;
     calscalar t = static_cast<calscalar>(now);
     for (size_t i = 0;i < dimens;++i) {

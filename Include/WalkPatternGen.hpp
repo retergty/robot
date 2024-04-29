@@ -251,7 +251,10 @@ public:
   }
 
   //generate trajectory potition,using ref_zmp and state
-  void GenerateTrajectoryPosition(leg_trajectory_generation_method_p swing_leg_gen = &FourOrderPolynomial<scalar>) {
+  template<typename SwingLegMethod = FourPolyMethod<scalar, 3, scalar>>
+  void GenerateTrajectoryPosition() {
+    static_assert(std::is_base_of_v<BaseMethod<scalar, 3>, SwingLegMethod>);
+    static_assert(std::is_same_v<typename SwingLegMethod::value_type, scalar>);
     //get robot initial com,right leg,left leg
     Vector3 robot_com = _legrobot.massCenter().position();
 
@@ -264,7 +267,7 @@ public:
     assert(isEqual(_Zc, robot_com(2)));
 
     typename std::vector<scalar>::difference_type index = GenerateStartTrajectoryPosition();
-    while ((index = GenerateAStepTrajectoryPosition(index, swing_leg_gen)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
+    while ((index = GenerateAStepTrajectoryPosition<SwingLegMethod>(index)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
   }
   //generate walk angle
   std::vector<Eigen::Vector<scalar, 12>> GetWalkAngle() {
@@ -419,32 +422,46 @@ private:
   // generate a step trajectory position,keep rotation
   // zmp_begin_index is step start index
   // return next step start index
+  template<typename SwingLegMethod>
   typename std::vector<scalar>::difference_type
-    GenerateAStepTrajectoryPosition(typename std::vector<scalar>::difference_type zmp_begin_index, leg_trajectory_generation_method_p swing_leg_gen) {
+    GenerateAStepTrajectoryPosition(typename std::vector<scalar>::difference_type zmp_begin_index) {
 
     auto last_old_index = _last_single_support_index[_step_count];
     auto next_steady_index = _last_double_support_index[_step_count];
 
-    xy_dim<scalar> target_foot_place;
-    if (_step_count == _step_total - 1) {
-      //last step
-      xy_dim<scalar> zmp = _ref_zmp[next_steady_index];
-      Vector3 support_foot_position;
-      if (_now_support == LEG::LEFT) {
-        support_foot_position = _trajectory.left.back().position();
+    if (last_old_index < (_ref_zmp.x.size() - 1)) {
+
+      xy_dim<scalar> target_foot_place;
+      if (_step_count == _step_total - 1) {
+        //last step
+        xy_dim<scalar> zmp = _ref_zmp[next_steady_index];
+        Vector3 support_foot_position;
+        if (_now_support == LEG::LEFT) {
+          support_foot_position = _trajectory.left.back().position();
+        }
+        else {
+          support_foot_position = _trajectory.right.back().position();
+        }
+        // last step always in robot center
+        target_foot_place = { 2 * zmp.x - support_foot_position(0),2 * zmp.y - support_foot_position(1) };
       }
       else {
-        support_foot_position = _trajectory.right.back().position();
+        target_foot_place = _ref_zmp[next_steady_index];
       }
-      // last step always in robot center
-      target_foot_place = { 2 * zmp.x - support_foot_position(0),2 * zmp.y - support_foot_position(1) };
-    }
-    else {
-      target_foot_place = _ref_zmp[next_steady_index];
-    }
 
-    if (last_old_index < (_ref_zmp.x.size() - 1)) {
-      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place, swing_leg_gen);
+      Eigen::Vector<scalar, 3> swing_leg_init;
+      Eigen::Vector<scalar, 3> swing_leg_target{ target_foot_place.x,target_foot_place.y,param::STEP_HEIGHT };
+
+      if (_now_support == LEG::LEFT) {
+        swing_leg_init = _trajectory.right.back().position();
+      }
+      else if (_now_support == LEG::RIGHT) {
+        swing_leg_init = _trajectory.left.back().position();
+      }
+
+      SwingLegMethod swing_method(swing_leg_init, swing_leg_target, last_old_index - zmp_begin_index + 1 - SwingLegPreserveIndex);
+
+      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place, swing_method);
       GenerateDoubleFootSupportTrajectoryPosition(last_old_index + 1, next_steady_index);
       ++_step_count;
     }
@@ -460,31 +477,39 @@ private:
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index,
     const xy_dim<scalar>& target_foot_place,
-    leg_trajectory_generation_method_p swing_leg_gen
+    const BaseMethod<scalar, 3>& swing_leg_method
   ) {
     //generate single foot support period
     Vector3 swing_leg_position;
     Pose<scalar> support_leg_pose;
 
     if (_now_support == LEG::LEFT) {
-      swing_leg_gen(zmp_start_index, zmp_end_index, _trajectory.right, target_foot_place);
       support_leg_pose = _trajectory.left.back();
     }
     else if (_now_support == LEG::RIGHT) {
-      swing_leg_gen(zmp_start_index, zmp_end_index, _trajectory.left, target_foot_place);
       support_leg_pose = _trajectory.right.back();
     }
 
     const Matrix33 robot_rotation = _legrobot.massCenter().rotation();
-    for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
+    for (auto i = zmp_start_index;i <= zmp_end_index - SwingLegPreserveIndex;++i) {
       if (_now_support == LEG::LEFT) {
+        _trajectory.right.emplace_back(swing_leg_method.NowVal(i - zmp_start_index), robot_rotation);
         _trajectory.left.push_back(support_leg_pose);
       }
       else if (_now_support == LEG::RIGHT) {
+        _trajectory.left.emplace_back(swing_leg_method.NowVal(i - zmp_start_index), robot_rotation);
         _trajectory.right.push_back(support_leg_pose);
       }
       xy_dim<Vector3> now_state = _state[i];
       Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
+      _trajectory.com.emplace_back(now_com_position, robot_rotation);
+      _trajectory.support.push_back(_now_support);
+    }
+    for (auto i = zmp_end_index - SwingLegPreserveIndex + 1;i <= zmp_end_index;++i) {
+      xy_dim<Vector3> now_state = _state[i];
+      Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
+      _trajectory.left.push_back(_trajectory.left.back());
+      _trajectory.right.push_back(_trajectory.right.back());
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
       _trajectory.support.push_back(_now_support);
     }

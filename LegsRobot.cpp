@@ -10,7 +10,7 @@ int main()
   walk1.GenerateAStep();
   walk1.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk1.UpdateState();
-  walk1.GenerateTrajectoryPosition(SixOrderPolynomial<double,long double>);
+  walk1.GenerateTrajectoryPosition();
   std::ofstream fout1("../MatLab/walkpattern1.txt", std::ios::out);
   GenerateWalkPatternToFile(walk1, fout1);
 
@@ -20,7 +20,7 @@ int main()
   walk2.GenerateContinuousStep(sx, sy, WalkPatternGen<double>::LEG::RIGHT);
   walk2.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk2.UpdateState();
-  walk2.GenerateTrajectoryPosition(SixOrderPolynomial<double,long double>);
+  walk2.GenerateTrajectoryPosition();
   std::ofstream fout2("../MatLab/walkpattern2.txt", std::ios::out);
   GenerateWalkPatternToFile(walk2, fout2);
 }
