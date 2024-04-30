@@ -23,7 +23,7 @@ protected:
 
 // t=0,t=T/2,t=T,t=0,t=T
 template <typename scalar, size_t dimens, typename calscalar = scalar,bool peek_z=true>
-class FourPolyMethod final : public BaseMethod<scalar, dimens>
+class FourPolyMethod : public BaseMethod<scalar, dimens>
 {
 public:
   using value_type = scalar;
@@ -64,10 +64,17 @@ public:
     }
   };
 
-  Eigen::Vector<scalar, dimens> NowVal(const scalar now_time) const override
+  Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override
   {
+    if(now < 0){
+      return this->_initial;
+    }
+    else if(now > this->_time_total){
+      return this->_target;
+    }
+
     Eigen::Vector<scalar, dimens> ret;
-    calscalar t = static_cast<calscalar>(now_time);
+    calscalar t = static_cast<calscalar>(now);
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t);
     }
@@ -80,7 +87,7 @@ private:
 
 // t=0.t=T, vel t=0,t=T, acc t=0,t=T
 template<typename scalar, size_t dimens, typename calscalar = scalar>
-class FivePolyMethod final :public BaseMethod<scalar, dimens>
+class FivePolyMethod :public BaseMethod<scalar, dimens>
 {
 public:
   using value_type = scalar;
@@ -119,6 +126,13 @@ public:
   }
 
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
+    if(now < 0){
+      return this->_initial;
+    }
+    else if(now > this->_time_total){
+      return this->_target;
+    }
+
     Eigen::Vector<scalar, dimens> ret;
     const calscalar t = static_cast<calscalar>(now);
     for (size_t i = 0;i < dimens;++i) {
@@ -133,7 +147,7 @@ private:
 // important! use long double!
 //  t=0,t=T/2,t=T, velocity t=0,t=T, accel t=0, t=T
 template <typename scalar, size_t dimens, typename calscalar = scalar,bool peek_z=true>
-class SixPolyMethod final :public BaseMethod<scalar, dimens>
+class SixPolyMethod :public BaseMethod<scalar, dimens>
 {
 public:
   using value_type = scalar;
@@ -203,7 +217,7 @@ private:
 };
 
 template <typename scalar, size_t dimens, typename calscalar = scalar>
-class KeepMethod final : public BaseMethod<scalar, dimens>
+class KeepMethod : public BaseMethod<scalar, dimens>
 {
 public:
   using value_type = scalar;
@@ -219,4 +233,40 @@ public:
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
     return this->_initial;
   }
+};
+
+// swing leg cross stairs method
+template<typename scalar,typename calscalar = scalar>
+class StairsMethod : public FivePolyMethod<scalar,3,calscalar>
+{
+public:
+  using value_type = scalar;
+  using cal_value_type = calscalar;
+  StairsMethod(
+    const Eigen::Vector<scalar, 3>& init,
+    const Eigen::Vector<scalar, 3>& target,
+    scalar time_total) :  FivePolyMethod<scalar, 3,calscalar>(init, target, time_total) {
+      if(target(2) > init(2)){
+        _com_z_peek = (target(2) - init(2))*1.5;
+      }
+      else {
+        _com_z_peek = (init(2) - target(2))*0.3;
+      }
+    }
+
+  Eigen::Vector<scalar,3> NowVal(const scalar now) const override{
+
+    if(now < 0){
+      return this->_initial;
+    }
+    else if(now > this->_time_total){
+      return this->_target;
+    }
+
+    Eigen::Vector<scalar,3>  ret = FivePolyMethod<scalar,3,calscalar>::NowVal(now);
+    ret(2) += -_com_z_peek + _com_z_peek*std::cos(2*M_PI*now/this->_time_total);
+    return ret;
+  }
+private:
+  scalar _com_z_peek;
 };
