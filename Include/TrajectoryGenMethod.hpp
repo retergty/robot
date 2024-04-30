@@ -22,7 +22,7 @@ protected:
 
 
 // t=0,t=T/2,t=T,t=0,t=T
-template <typename scalar, size_t dimens, typename calscalar = scalar>
+template <typename scalar, size_t dimens, typename calscalar = scalar,bool peek_z=true>
 class FourPolyMethod final : public BaseMethod<scalar, dimens>
 {
 public:
@@ -37,8 +37,13 @@ public:
     Eigen::Vector<scalar, 5> b[dimens];
     for (size_t i = 0;i < dimens;++i) {
       b[i](0) = init(i);
-      if (i==2) {
-        b[i](1) = init(i) + param::STEP_Z_PEEK; // if z axis init is equal to target, generate a peek to prevent line trajectory
+      if constexpr (peek_z){
+        if (i==2) {
+          b[i](1) = init(i) + param::STEP_Z_PEEK; // if z axis init is equal to target, generate a peek to prevent line trajectory
+        }
+        else {
+          b[i](1) = (target(i) + init(i)) / 2;
+        }
       }
       else {
         b[i](1) = (target(i) + init(i)) / 2;
@@ -127,7 +132,7 @@ private:
 
 // important! use long double!
 //  t=0,t=T/2,t=T, velocity t=0,t=T, accel t=0, t=T
-template <typename scalar, size_t dimens, typename calscalar = scalar>
+template <typename scalar, size_t dimens, typename calscalar = scalar,bool peek_z=true>
 class SixPolyMethod final :public BaseMethod<scalar, dimens>
 {
 public:
@@ -148,8 +153,13 @@ public:
     Eigen::Vector<scalar, 7> b[dimens];
     for (size_t i = 0;i < dimens;++i) {
       b[i](0) = init(i);
-      if (i==2) {
-        b[i](1) = init(i) + param::STEP_Z_PEEK; // if z axis init is equal to target, generate a peek to prevent line trajectory
+      if constexpr (peek_z){
+        if (i==2) {
+          b[i](1) = init(i) + param::STEP_Z_PEEK; // if z axis init is equal to target, generate a peek to prevent line trajectory
+        }
+        else {
+          b[i](1) = (target(i) + init(i)) / 2;
+        }
       }
       else {
         b[i](1) = (target(i) + init(i)) / 2;
@@ -175,6 +185,14 @@ public:
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
     Eigen::Vector<scalar, dimens> ret;
     calscalar t = static_cast<calscalar>(now);
+    
+    if(now < 0){
+      return this->_initial;
+    }
+    else if(now > this->_time_total){
+      return this->_target;
+    }
+
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t + a[i](5) * t * t * t * t * t + a[i](6) * t * t * t * t * t * t);
     }

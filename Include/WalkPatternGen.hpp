@@ -39,47 +39,6 @@ void SmoothStep(std::vector<scalar>& trajectory, const scalar Tsmooth, const sca
     t += sample_time;
   }
 }
-
-//start in begin, end right before last,search next different and steady value
-template<typename Iterator>
-Iterator SearchNextSteadyValue(Iterator begin, Iterator last)
-{
-  Iterator next_steady = begin;
-  Iterator next_after = begin;
-
-  typename Iterator::value_type old_val = *begin;
-
-  ++next_after;
-
-  while (next_after != last) {
-    if (!isEqual(*next_steady, old_val, 1e-4) && isEqual(*next_steady, *next_after, 1e-7)) {
-      break;
-    }
-    ++next_steady;
-    ++next_after;
-  }
-  return next_steady;
-}
-
-//start in begin,end right before last,search last old value
-template<typename Iterator>
-Iterator SearchLastOldVale(Iterator begin, Iterator last)
-{
-  Iterator last_steady = begin;
-  Iterator next_after = begin;
-
-  typename Iterator::value_type old_val = *begin;
-
-  ++next_after;
-
-  while (next_after != last && isEqual(*next_after, old_val, 1e-5)) {
-    ++last_steady;
-    ++next_after;
-  }
-
-  return last_steady;
-}
-
 template<typename scalar>
 class WalkPatternGen
 {
@@ -92,7 +51,8 @@ public:
   constexpr static scalar Sx = param::STEP_LENGTH;  //step forward 
   constexpr static scalar Sy = param::STEP_WIDTH; //step width
   constexpr static long SwingLegPreserveIndex = std::floor(Tstart / PREVIEW_CONTROL_SAMPLE_TIME * 0.05);//use to generate swing leg trajectory, leave some times between single leg period and double leg period
-  typedef void (*leg_trajectory_generation_method_p)(typename std::vector<scalar>::difference_type, typename std::vector<scalar>::difference_type, std::vector<Pose<scalar>>&, const xy_dim<scalar>&);
+  constexpr static long ComZMovingWaitIndex = std::floor(Tstep/PREVIEW_CONTROL_SAMPLE_TIME * 0.3); // leave some times, before com z start moving
+  constexpr static long ComZMovingPreserveIndex = std::floor(Tstep/PREVIEW_CONTROL_SAMPLE_TIME * 0.2); // leave some times, after com z finish moving
 
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
@@ -251,10 +211,13 @@ public:
   }
 
   //generate trajectory potition,using ref_zmp and state
-  template<typename SwingLegMethod = FourPolyMethod<scalar, 3, scalar>>
+  template<typename SwingLegMethod = FourPolyMethod<scalar, 3, scalar>,typename ComZMethod = KeepMethod<scalar,1,scalar>>
   void GenerateTrajectoryPosition() {
     static_assert(std::is_base_of_v<BaseMethod<scalar, 3>, SwingLegMethod>);
+    static_assert(std::is_base_of_v<BaseMethod<scalar, 3>, ComZMethod>);
     static_assert(std::is_same_v<typename SwingLegMethod::value_type, scalar>);
+    static_assert(std::is_same_v<typename ComZMethod::value_type, scalar>);
+
     //get robot initial com,right leg,left leg
     Vector3 robot_com = _legrobot.massCenter().position();
 
@@ -267,7 +230,7 @@ public:
     assert(isEqual(_Zc, robot_com(2)));
 
     typename std::vector<scalar>::difference_type index = GenerateStartTrajectoryPosition();
-    while ((index = GenerateAStepTrajectoryPosition<SwingLegMethod>(index)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
+    while ((index = GenerateAStepTrajectoryPosition<SwingLegMethod,ComZMethod>(index)) < static_cast<decltype(index)>(_ref_zmp.x.size()));
   }
   //generate walk angle
   std::vector<Eigen::Vector<scalar, 12>> GetWalkAngle() {
@@ -422,7 +385,7 @@ private:
   // generate a step trajectory position,keep rotation
   // zmp_begin_index is step start index
   // return next step start index
-  template<typename SwingLegMethod>
+  template<typename SwingLegMethod,typename ComZMethod>
   typename std::vector<scalar>::difference_type
     GenerateAStepTrajectoryPosition(typename std::vector<scalar>::difference_type zmp_begin_index) {
 
@@ -461,8 +424,12 @@ private:
 
       SwingLegMethod swing_method(swing_leg_init, swing_leg_target, last_old_index - zmp_begin_index + 1 - SwingLegPreserveIndex);
 
-      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place, swing_method);
-      GenerateDoubleFootSupportTrajectoryPosition(last_old_index + 1, next_steady_index);
+      Eigen::Vector<scalar,1> com_z_init = _trajectory.com.back()(2);
+      Eigen::Vector<scalar,1> com_z_target = {com_z_init(0) + param::STEP_HEIGHT};
+      ComZMethod comz_method(com_z_init,com_z_target,next_steady_index-zmp_begin_index+1-ComZMovingWaitIndex-ComZMovingPreserveIndex);
+
+      GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place, swing_method,comz_method);
+      GenerateDoubleFootSupportTrajectoryPosition(zmp_begin_index,last_old_index + 1, next_steady_index,comz_method);
       ++_step_count;
     }
     else {
@@ -477,7 +444,8 @@ private:
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index,
     const xy_dim<scalar>& target_foot_place,
-    const BaseMethod<scalar, 3>& swing_leg_method
+    const BaseMethod<scalar, 3>& swing_leg_method,
+    const BaseMethod<scalar,1>& comz_method
   ) {
     //generate single foot support period
     Vector3 swing_leg_position;
@@ -491,25 +459,18 @@ private:
     }
 
     const Matrix33 robot_rotation = _legrobot.massCenter().rotation();
-    for (auto i = zmp_start_index;i <= zmp_end_index - SwingLegPreserveIndex;++i) {
+    for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
+      typename std::vector<scalar>::difference_type index_i = i-zmp_start_index;
       if (_now_support == LEG::LEFT) {
-        _trajectory.right.emplace_back(swing_leg_method.NowVal(i - zmp_start_index), robot_rotation);
+        _trajectory.right.emplace_back(swing_leg_method.NowVal(index_i), robot_rotation);
         _trajectory.left.push_back(support_leg_pose);
       }
       else if (_now_support == LEG::RIGHT) {
-        _trajectory.left.emplace_back(swing_leg_method.NowVal(i - zmp_start_index), robot_rotation);
+        _trajectory.left.emplace_back(swing_leg_method.NowVal(index_i), robot_rotation);
         _trajectory.right.push_back(support_leg_pose);
       }
       xy_dim<Vector3> now_state = _state[i];
-      Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
-      _trajectory.com.emplace_back(now_com_position, robot_rotation);
-      _trajectory.support.push_back(_now_support);
-    }
-    for (auto i = zmp_end_index - SwingLegPreserveIndex + 1;i <= zmp_end_index;++i) {
-      xy_dim<Vector3> now_state = _state[i];
-      Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
-      _trajectory.left.push_back(_trajectory.left.back());
-      _trajectory.right.push_back(_trajectory.right.back());
+      Vector3 now_com_position = { now_state.x(0),now_state.y(0),comz_method.NowVal(index_i-ComZMovingWaitIndex) };
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
       _trajectory.support.push_back(_now_support);
     }
@@ -517,8 +478,10 @@ private:
 
   //generate double support period
   void GenerateDoubleFootSupportTrajectoryPosition(
+    typename std::vector<scalar>::difference_type zmp_step_start_index,
     typename std::vector<scalar>::difference_type zmp_start_index,
-    typename std::vector<scalar>::difference_type zmp_end_index
+    typename std::vector<scalar>::difference_type zmp_end_index,
+    const BaseMethod<scalar,1>& comz_method
   ) {
     Pose<scalar> right_last_pose = _trajectory.right.back();
     Pose<scalar> left_last_pose = _trajectory.left.back();
@@ -536,7 +499,8 @@ private:
     Matrix33 robot_rotation = _trajectory.com.back().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
       xy_dim<Vector3> now_state = _state[i];
-      Vector3 now_com_position = { now_state.x(0),now_state.y(0),_Zc };
+      typename std::vector<scalar>::difference_type index_i = i-zmp_step_start_index;
+      Vector3 now_com_position = { now_state.x(0),now_state.y(0),comz_method.NowVal(index_i-ComZMovingWaitIndex) };
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
       _trajectory.right.push_back(right_last_pose);
       _trajectory.left.push_back(left_last_pose);
