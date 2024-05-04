@@ -10,14 +10,16 @@ public:
   BaseMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
-    scalar time_total) : _initial(init), _target(target), _time_total(time_total) {};
+    scalar time_start,
+    scalar time_end) : _initial(init), _target(target), _time_start(time_start),_time_end(time_end) {};
 
   virtual ~BaseMethod() {};
   virtual Eigen::Vector<scalar, dimens> NowVal(const scalar now_time) const = 0;
 protected:
   Eigen::Vector<scalar, dimens> _initial;
   Eigen::Vector<scalar, dimens> _target;
-  scalar _time_total;
+  scalar _time_start;
+  scalar _time_end;
 };
 
 
@@ -31,9 +33,10 @@ public:
   FourPolyMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
-    scalar time_total) : BaseMethod<scalar, dimens>(init, target, time_total)
+    scalar time_start,
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
   {
-    calscalar T = static_cast<calscalar>(time_total);
+    calscalar T = static_cast<calscalar>(time_end - time_start + 1);
     Eigen::Vector<scalar, 5> b[dimens];
     for (size_t i = 0;i < dimens;++i) {
       b[i](0) = init(i);
@@ -66,15 +69,15 @@ public:
 
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override
   {
-    if(now < 0){
+    if(now < this->_time_start){
       return this->_initial;
     }
-    else if(now > this->_time_total){
+    else if(now > this->_time_end){
       return this->_target;
     }
 
     Eigen::Vector<scalar, dimens> ret;
-    calscalar t = static_cast<calscalar>(now);
+    const calscalar t = static_cast<calscalar>(now-this->_time_start);
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t);
     }
@@ -95,9 +98,10 @@ public:
   FivePolyMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
-    scalar time_total) : BaseMethod<scalar, dimens>(init, target, time_total)
+    scalar time_start,
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
   {
-    calscalar T = static_cast<calscalar>(time_total);
+    calscalar T = static_cast<calscalar>(time_end-time_start+1);
     calscalar T_Ord2 = IntPower<2>(T);
     calscalar T_Ord3 = IntPower<3>(T);
     calscalar T_Ord4 = IntPower<4>(T);
@@ -126,15 +130,15 @@ public:
   }
 
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
-    if(now < 0){
+    if(now < this->_time_start){
       return this->_initial;
     }
-    else if(now > this->_time_total){
+    else if(now > this->_time_end){
       return this->_target;
     }
 
     Eigen::Vector<scalar, dimens> ret;
-    const calscalar t = static_cast<calscalar>(now);
+    const calscalar t = static_cast<calscalar>(now-this->_time_start);
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t + a[i](5) * t * t * t * t * t);
     }
@@ -155,9 +159,10 @@ public:
   SixPolyMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
-    scalar time_total) : BaseMethod<scalar, dimens>(init, target, time_total)
+    scalar time_start,
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
   {
-    calscalar T = static_cast<calscalar>(time_total);
+    calscalar T = static_cast<calscalar>(time_end-time_start+1);
     calscalar T_Ord2 = IntPower<2>(T);
     calscalar T_Ord3 = IntPower<3>(T);
     calscalar T_Ord4 = IntPower<4>(T);
@@ -196,17 +201,17 @@ public:
     }
   }
 
-  Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
-    Eigen::Vector<scalar, dimens> ret;
-    calscalar t = static_cast<calscalar>(now);
-    
-    if(now < 0){
+  Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override
+  {
+    if(now < this->_time_start){
       return this->_initial;
     }
-    else if(now > this->_time_total){
+    else if(now > this->_time_end){
       return this->_target;
     }
 
+    Eigen::Vector<scalar, dimens> ret;
+    const calscalar t = static_cast<calscalar>(now-this->_time_start);
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t + a[i](5) * t * t * t * t * t + a[i](6) * t * t * t * t * t * t);
     }
@@ -225,7 +230,9 @@ public:
   KeepMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
-    scalar time_total) : BaseMethod<scalar, dimens>(init, target, time_total) {
+    scalar time_start,
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
+  {
     for (size_t i = 0;i < dimens;++i) {
       assert(isEqual(init(i), target(i)));
     }
@@ -245,7 +252,8 @@ public:
   StairsMethod(
     const Eigen::Vector<scalar, 3>& init,
     const Eigen::Vector<scalar, 3>& target,
-    scalar time_total) :  FivePolyMethod<scalar, 3,calscalar>(init, target, time_total) {
+    scalar time_start,
+    scalar time_end) :  FivePolyMethod<scalar, 3,calscalar>(init, target, time_start,time_end) {
       if(target(2) > init(2)){
         _com_z_peek = (target(2) - init(2))*1.5;
       }
@@ -256,15 +264,18 @@ public:
 
   Eigen::Vector<scalar,3> NowVal(const scalar now) const override{
 
-    if(now < 0){
+    if(now < tihs->_time_start){
       return this->_initial;
     }
-    else if(now > this->_time_total){
+    else if(now > this->_time_end){
       return this->_target;
     }
 
     Eigen::Vector<scalar,3>  ret = FivePolyMethod<scalar,3,calscalar>::NowVal(now);
-    ret(2) += -_com_z_peek + _com_z_peek*std::cos(2*M_PI*now/this->_time_total);
+
+    const calscalar t = static_cast<calscalar>(now-this->_time_start);
+    const calscalar period = static_cast<calscalar>(this->_time_end-this->_time_start+1);
+    ret(2) += -_com_z_peek + _com_z_peek*std::cos(2*M_PI*t/period);
     return ret;
   }
 private:

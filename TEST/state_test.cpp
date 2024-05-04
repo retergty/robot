@@ -9,7 +9,7 @@ protected:
     walk1.GenerateAStep();
     walk1.GenerateStillStep(WalkPatternGen<double>::Tstep);
 
-    walk2.GenerateContinuousStep(sx, sy, WalkPatternGen<double>::LEG::RIGHT);
+    walk2.GenerateContinuousStep(sx, sy, sz,WalkPatternGen<double>::LEG::RIGHT);
     walk1.GenerateStillStep(WalkPatternGen<double>::Tstep);
 
     walk1.UpdateState();
@@ -19,6 +19,7 @@ protected:
   WalkPatternGen<double> walk2;
   std::vector<double> sx = { 0,param::STEP_LENGTH,param::STEP_LENGTH,param::STEP_LENGTH,0 };
   std::vector<double> sy = { param::STEP_WIDTH/2,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH/2 };
+  std::vector<double> sz = {0,0,0,0,0};
 };
 
 TEST_F(WalkTest, walk1_reference_zmp_test) {

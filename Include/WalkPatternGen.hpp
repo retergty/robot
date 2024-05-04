@@ -50,6 +50,7 @@ public:
   constexpr static scalar Trest = param::REST_SCALAR * Tstep; //step rest time
   constexpr static scalar Sx = param::STEP_LENGTH;  //step forward 
   constexpr static scalar Sy = param::STEP_WIDTH; //step width
+  constexpr static scalar Sz = param::STEP_HEIGHT; // step height
   constexpr static long SwingLegPreserveIndex = std::floor(Tstart / PREVIEW_CONTROL_SAMPLE_TIME * 0.05);//use to generate swing leg trajectory, leave some times between single leg period and double leg period
   constexpr static long ComZMovingWaitIndex = std::floor(Tstep/PREVIEW_CONTROL_SAMPLE_TIME * 0.3); // leave some times, before com z start moving
   constexpr static long ComZMovingPreserveIndex = std::floor(Tstep/PREVIEW_CONTROL_SAMPLE_TIME * 0.2); // leave some times, after com z finish moving
@@ -67,6 +68,10 @@ public:
     _C_(0) = 1;
     _C_(1) = 0;
     _C_(2) = -com_position(2) / PREVIEW_CONTROL_ACC_G;
+
+    //give reference z a init val equal to 0
+    _target_z.push_back(0);
+
     //give reference zmp a init val
     _ref_zmp.x.push_back(com_position(0));
     _ref_zmp.y.push_back(com_position(1));
@@ -116,7 +121,7 @@ public:
 
   //generate a robot step reference zmp,first move zmp to support leg,second move zmp to forward, finally move zmp to center
   // leg is support leg
-  void GenerateAStep(const scalar sx = Sx, const scalar sy = Sy, const LEG sup_leg = LEG::RIGHT) {
+  void GenerateAStep(const scalar sx = Sx, const scalar sy = Sy, const scalar sz = Sz,const LEG sup_leg = LEG::RIGHT) {
     xy_dim<scalar> target_zmp1;
     xy_dim<scalar> target_zmp2;
     xy_dim<scalar> target_zmp3;
@@ -145,11 +150,16 @@ public:
     GenerateAStepZMP(target_zmp1);
     GenerateAStepZMP(target_zmp2);
     GenerateAStepZMP(target_zmp3);
+
+    scalar z_init = _target_z.back();
+    _target_z.push_back(z_init);
+    _target_z.push_back(z_init + sz);
+    _target_z.push_back(_target_z.back());
   }
 
   //generate continuous step
   // leg is first step support leg
-  void GenerateContinuousStep(const std::vector<scalar>& sx, const std::vector<scalar>& sy, const LEG first_sup_leg) {
+  void GenerateContinuousStep(const std::vector<scalar>& sx, const std::vector<scalar>& sy, const std::vector<scalar>& sz,const LEG first_sup_leg) {
     xy_dim<scalar> target_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
     size_t factor = 0;
     if (first_sup_leg == LEG::LEFT) {
@@ -163,6 +173,7 @@ public:
         target_zmp.y -= sy[i];
       ++factor;
       GenerateAStepZMP(target_zmp);
+      _target_z.push_back(sz[i]);
     }
   }
 
@@ -394,7 +405,7 @@ private:
 
     if (last_old_index < (_ref_zmp.x.size() - 1)) {
 
-      xy_dim<scalar> target_foot_place;
+      Eigen::Vector<scalar,3> target_foot_place;
       if (_step_count == _step_total - 1) {
         //last step
         xy_dim<scalar> zmp = _ref_zmp[next_steady_index];
@@ -406,14 +417,16 @@ private:
           support_foot_position = _trajectory.right.back().position();
         }
         // last step always in robot center
-        target_foot_place = { 2 * zmp.x - support_foot_position(0),2 * zmp.y - support_foot_position(1) };
+        target_foot_place(0) = 2 * zmp.x - support_foot_position(0);
+        target_foot_place(1) = 2 * zmp.y - support_foot_position(1);
       }
       else {
-        target_foot_place = _ref_zmp[next_steady_index];
+        target_foot_place(0) = zmp.x;
+        target_foot_place(1) = zmp.y;
       }
+      target_foot_place(2) = _target_z[_step_count+1];
 
       Eigen::Vector<scalar, 3> swing_leg_init;
-      Eigen::Vector<scalar, 3> swing_leg_target{ target_foot_place.x,target_foot_place.y,param::STEP_HEIGHT };
 
       if (_now_support == LEG::LEFT) {
         swing_leg_init = _trajectory.right.back().position();
@@ -422,14 +435,14 @@ private:
         swing_leg_init = _trajectory.left.back().position();
       }
 
-      SwingLegMethod swing_method(swing_leg_init, swing_leg_target, last_old_index - zmp_begin_index + 1 - SwingLegPreserveIndex);
+      SwingLegMethod swing_method(swing_leg_init, target_foot_place, zmp_begin_index,last_old_index-SwingLegPreserveIndex);
 
       Eigen::Vector<scalar,1> com_z_init = _trajectory.com.back()(2);
-      Eigen::Vector<scalar,1> com_z_target = {com_z_init(0) + param::STEP_HEIGHT};
-      ComZMethod comz_method(com_z_init,com_z_target,next_steady_index-zmp_begin_index+1-ComZMovingWaitIndex-ComZMovingPreserveIndex);
+      Eigen::Vector<scalar,1> com_z_target = {com_z_init(0) + _target_z[_step_count+1]};
+      ComZMethod comz_method(com_z_init,com_z_target,zmp_begin_index-ComZMovingWaitIndex,next_steady_index-ComZMovingPreserveIndex);
 
       GenerateSingleFootSupportTrajectoryPosition(zmp_begin_index, last_old_index, target_foot_place, swing_method,comz_method);
-      GenerateDoubleFootSupportTrajectoryPosition(zmp_begin_index,last_old_index + 1, next_steady_index,comz_method);
+      GenerateDoubleFootSupportTrajectoryPosition(last_old_index + 1, next_steady_index,comz_method);
       ++_step_count;
     }
     else {
@@ -460,17 +473,16 @@ private:
 
     const Matrix33 robot_rotation = _legrobot.massCenter().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
-      typename std::vector<scalar>::difference_type index_i = i-zmp_start_index;
       if (_now_support == LEG::LEFT) {
-        _trajectory.right.emplace_back(swing_leg_method.NowVal(index_i), robot_rotation);
+        _trajectory.right.emplace_back(swing_leg_method.NowVal(i), robot_rotation);
         _trajectory.left.push_back(support_leg_pose);
       }
       else if (_now_support == LEG::RIGHT) {
-        _trajectory.left.emplace_back(swing_leg_method.NowVal(index_i), robot_rotation);
+        _trajectory.left.emplace_back(swing_leg_method.NowVal(i), robot_rotation);
         _trajectory.right.push_back(support_leg_pose);
       }
       xy_dim<Vector3> now_state = _state[i];
-      Vector3 now_com_position = { now_state.x(0),now_state.y(0),comz_method.NowVal(index_i-ComZMovingWaitIndex) };
+      Vector3 now_com_position = { now_state.x(0),now_state.y(0),comz_method.NowVal(i) };
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
       _trajectory.support.push_back(_now_support);
     }
@@ -478,7 +490,6 @@ private:
 
   //generate double support period
   void GenerateDoubleFootSupportTrajectoryPosition(
-    typename std::vector<scalar>::difference_type zmp_step_start_index,
     typename std::vector<scalar>::difference_type zmp_start_index,
     typename std::vector<scalar>::difference_type zmp_end_index,
     const BaseMethod<scalar,1>& comz_method
@@ -499,8 +510,7 @@ private:
     Matrix33 robot_rotation = _trajectory.com.back().rotation();
     for (auto i = zmp_start_index;i <= zmp_end_index;++i) {
       xy_dim<Vector3> now_state = _state[i];
-      typename std::vector<scalar>::difference_type index_i = i-zmp_step_start_index;
-      Vector3 now_com_position = { now_state.x(0),now_state.y(0),comz_method.NowVal(index_i-ComZMovingWaitIndex) };
+      Vector3 now_com_position = { now_state.x(0),now_state.y(0),comz_method.NowVal(i) };
       _trajectory.com.emplace_back(now_com_position, robot_rotation);
       _trajectory.right.push_back(right_last_pose);
       _trajectory.left.push_back(left_last_pose);
@@ -549,6 +559,7 @@ private:
 
   std::vector<typename std::vector<scalar>::size_type> _last_single_support_index; // last single foot support index in ist step, used in walk generation
   std::vector<typename std::vector<scalar>::size_type> _last_double_support_index; // last double foot support index in ist step,used in walk generation
+  std::vector<scalar> _target_z; // reference z in this step
 
   size_t _step_total = 0; //count for how many times _ref_zmp changed
   size_t _step_count = 0;//count for how many times walk patterns have changed
