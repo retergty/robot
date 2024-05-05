@@ -142,7 +142,7 @@ int main()
   fos2.close();
 
   WalkPatternGen<double> walk3({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
-  walk3.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, 0.01);
+  walk3.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, 0.02);
   walk3.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk3.UpdateState();
   walk3.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();
@@ -153,7 +153,7 @@ int main()
   fos3.close();
 
   WalkPatternGen<double> walk4({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
-  walk4.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, -0.01);
+  walk4.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, -0.02);
   walk4.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk4.UpdateState();
   walk4.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();

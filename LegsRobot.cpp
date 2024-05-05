@@ -27,7 +27,7 @@ int main()
 
   //upstairs 
   WalkPatternGen<double> walk3;
-  walk3.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,0.01);
+  walk3.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,0.02);
   walk3.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk3.UpdateState();
   walk3.GenerateTrajectoryPosition<StairsMethod<double,long double>,FivePolyMethod<double,1,long double>>();
@@ -36,7 +36,7 @@ int main()
 
   //upstairs 
   WalkPatternGen<double> walk4;
-  walk4.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,-0.01);
+  walk4.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,-0.02);
   walk4.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk4.UpdateState();
   walk4.GenerateTrajectoryPosition<StairsMethod<double,long double>,FivePolyMethod<double,1,long double>>();
