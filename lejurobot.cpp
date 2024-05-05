@@ -110,7 +110,7 @@ int main()
   right_hand.array() -= ANGLE_OFFSET<double>;
   left_hand.array() -= ANGLE_OFFSET<double>;
   remote_hand.array() -= ANGLE_OFFSET<double>;
-  
+
   WalkPatternGen<double> walk1({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
   walk1.GenerateAStep();
   walk1.GenerateStillStep(WalkPatternGen<double>::Tstep);
@@ -130,8 +130,8 @@ int main()
   WalkPatternGen<double> walk2({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
   std::vector<double> sx = { 0,param::STEP_LENGTH,param::STEP_LENGTH,param::STEP_LENGTH,0 };
   std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH / 2 };
-  std::vector<double> sz = {0,0,0,0,0};
-  walk2.GenerateContinuousStep(sx, sy, sz,WalkPatternGen<double>::LEG::RIGHT);
+  std::vector<double> sz = { 0,0,0,0,0 };
+  walk2.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::RIGHT);
   walk2.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk2.UpdateState();
   walk2.GenerateTrajectoryPosition();
@@ -142,10 +142,10 @@ int main()
   fos2.close();
 
   WalkPatternGen<double> walk3({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
-  walk3.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,0.01);
+  walk3.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, 0.01);
   walk3.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk3.UpdateState();
-  walk3.GenerateTrajectoryPosition<StairsMethod<double>,FivePolyMethod<double,1> >();
+  walk3.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();
   std::vector<Eigen::Vector<double, 12>> walk3_angle = walk3.GetWalkAngle();
 
   std::ofstream fos3("WalkGen/upStairs.src", std::ios::out);
@@ -153,14 +153,25 @@ int main()
   fos3.close();
 
   WalkPatternGen<double> walk4({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
-  walk4.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,-0.01);
+  walk4.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, -0.01);
   walk4.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk4.UpdateState();
-  walk4.GenerateTrajectoryPosition<StairsMethod<double>,FivePolyMethod<double,1> >();
+  walk4.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();
   std::vector<Eigen::Vector<double, 12>> walk4_angle = walk4.GetWalkAngle();
 
   std::ofstream fos4("WalkGen/downStairs.src", std::ios::out);
   GenerateFormatWalkTo(fos4, walk4_angle, right_hand, left_hand, remote_hand);
+  fos4.close();
+
+  LegsRobot<double> leg_robot({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.01 });
+  std::vector<Eigen::Vector<double, 12>> leg_angle;
+  Eigen::Vector<double, 12> leg_ang;
+  leg_ang.head<6>() = leg_robot.rightLegAngle();
+  leg_ang.tail<6>() = leg_robot.leftLegAngle();
+  leg_angle.push_back(leg_ang);
+
+  std::ofstream fos5("WalkGen/test.src", std::ios::out);
+  GenerateFormatWalkTo(fos5, leg_angle, right_hand, left_hand, remote_hand);
   fos4.close();
 
   return 0;
