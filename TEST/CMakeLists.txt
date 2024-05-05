@@ -57,8 +57,6 @@ foreach(test_target IN LISTS test_targets)
     -Wmissing-declarations
     -Wmissing-include-dirs
     -Wno-sign-compare
-    -Wno-unused
-    -Wno-unused-parameter
     -Wnoexcept
     -Woverloaded-virtual
     -Wpointer-arith

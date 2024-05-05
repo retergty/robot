@@ -11,7 +11,7 @@ public:
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
     scalar time_start,
-    scalar time_end) : _initial(init), _target(target), _time_start(time_start),_time_end(time_end) {};
+    scalar time_end) : _initial(init), _target(target), _time_start(time_start), _time_end(time_end) {};
 
   virtual ~BaseMethod() {};
   virtual Eigen::Vector<scalar, dimens> NowVal(const scalar now_time) const = 0;
@@ -24,7 +24,7 @@ protected:
 
 
 // t=0,t=T/2,t=T,t=0,t=T
-template <typename scalar, size_t dimens, typename calscalar = scalar,bool peek_z=true>
+template <typename scalar, size_t dimens, typename calscalar = scalar, bool peek_z = true>
 class FourPolyMethod : public BaseMethod<scalar, dimens>
 {
 public:
@@ -34,14 +34,14 @@ public:
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
     scalar time_start,
-    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start, time_end)
   {
     calscalar T = static_cast<calscalar>(time_end - time_start + 1);
     Eigen::Vector<scalar, 5> b[dimens];
     for (size_t i = 0;i < dimens;++i) {
       b[i](0) = init(i);
-      if constexpr (peek_z){
-        if (i==2) {
+      if constexpr (peek_z) {
+        if (i == 2) {
           b[i](1) = init(i) + param::STEP_Z_PEEK; // if z axis init is equal to target, generate a peek to prevent line trajectory
         }
         else {
@@ -69,15 +69,15 @@ public:
 
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override
   {
-    if(now < this->_time_start){
+    if (now < this->_time_start) {
       return this->_initial;
     }
-    else if(now > this->_time_end){
+    else if (now > this->_time_end) {
       return this->_target;
     }
 
     Eigen::Vector<scalar, dimens> ret;
-    const calscalar t = static_cast<calscalar>(now-this->_time_start);
+    const calscalar t = static_cast<calscalar>(now - this->_time_start);
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t);
     }
@@ -99,9 +99,9 @@ public:
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
     scalar time_start,
-    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start, time_end)
   {
-    calscalar T = static_cast<calscalar>(time_end-time_start+1);
+    calscalar T = static_cast<calscalar>(time_end - time_start + 1);
     calscalar T_Ord2 = IntPower<2>(T);
     calscalar T_Ord3 = IntPower<3>(T);
     calscalar T_Ord4 = IntPower<4>(T);
@@ -117,7 +117,6 @@ public:
     }
     Eigen::Matrix<calscalar, 6, 6> A{
         {1, 0, 0, 0, 0, 0},
-        {1, T / 2, T_Ord2 / 4, T_Ord3 / 8, T_Ord4 / 16, T_Ord5 / 32},
         {1, T, T_Ord2, T_Ord3, T_Ord4, T_Ord5},
         {0, 1, 0, 0, 0, 0},
         {0, 1, 2 * T, 3 * T_Ord2, 4 * T_Ord3, 5 * T_Ord4},
@@ -130,18 +129,19 @@ public:
   }
 
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
-    if(now < this->_time_start){
+    if (now < this->_time_start) {
       return this->_initial;
     }
-    else if(now > this->_time_end){
+    else if (now > this->_time_end) {
       return this->_target;
     }
 
     Eigen::Vector<scalar, dimens> ret;
-    const calscalar t = static_cast<calscalar>(now-this->_time_start);
+    const calscalar t = static_cast<calscalar>(now - this->_time_start);
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t + a[i](5) * t * t * t * t * t);
     }
+    return ret;
   }
 private:
   Eigen::Vector<calscalar, 6> a[dimens];
@@ -150,7 +150,7 @@ private:
 
 // important! use long double!
 //  t=0,t=T/2,t=T, velocity t=0,t=T, accel t=0, t=T
-template <typename scalar, size_t dimens, typename calscalar = scalar,bool peek_z=true>
+template <typename scalar, size_t dimens, typename calscalar = scalar, bool peek_z = true>
 class SixPolyMethod :public BaseMethod<scalar, dimens>
 {
 public:
@@ -160,9 +160,9 @@ public:
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
     scalar time_start,
-    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start, time_end)
   {
-    calscalar T = static_cast<calscalar>(time_end-time_start+1);
+    calscalar T = static_cast<calscalar>(time_end - time_start + 1);
     calscalar T_Ord2 = IntPower<2>(T);
     calscalar T_Ord3 = IntPower<3>(T);
     calscalar T_Ord4 = IntPower<4>(T);
@@ -172,8 +172,8 @@ public:
     Eigen::Vector<scalar, 7> b[dimens];
     for (size_t i = 0;i < dimens;++i) {
       b[i](0) = init(i);
-      if constexpr (peek_z){
-        if (i==2) {
+      if constexpr (peek_z) {
+        if (i == 2) {
           b[i](1) = init(i) + param::STEP_Z_PEEK; // if z axis init is equal to target, generate a peek to prevent line trajectory
         }
         else {
@@ -203,15 +203,15 @@ public:
 
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override
   {
-    if(now < this->_time_start){
+    if (now < this->_time_start) {
       return this->_initial;
     }
-    else if(now > this->_time_end){
+    else if (now > this->_time_end) {
       return this->_target;
     }
 
     Eigen::Vector<scalar, dimens> ret;
-    const calscalar t = static_cast<calscalar>(now-this->_time_start);
+    const calscalar t = static_cast<calscalar>(now - this->_time_start);
     for (size_t i = 0;i < dimens;++i) {
       ret(i) = static_cast<scalar>(a[i](0) + a[i](1) * t + a[i](2) * t * t + a[i](3) * t * t * t + a[i](4) * t * t * t * t + a[i](5) * t * t * t * t * t + a[i](6) * t * t * t * t * t * t);
     }
@@ -231,20 +231,21 @@ public:
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
     scalar time_start,
-    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start,time_end)
+    scalar time_end) : BaseMethod<scalar, dimens>(init, target, time_start, time_end)
   {
     for (size_t i = 0;i < dimens;++i) {
       assert(isEqual(init(i), target(i)));
     }
   };
   Eigen::Vector<scalar, dimens> NowVal(const scalar now) const override {
+    (void)now;
     return this->_initial;
   }
 };
 
 // swing leg cross stairs method
-template<typename scalar,typename calscalar = scalar>
-class StairsMethod : public FivePolyMethod<scalar,3,calscalar>
+template<typename scalar, typename calscalar = scalar>
+class StairsMethod : public FivePolyMethod<scalar, 3, calscalar>
 {
 public:
   using value_type = scalar;
@@ -253,29 +254,30 @@ public:
     const Eigen::Vector<scalar, 3>& init,
     const Eigen::Vector<scalar, 3>& target,
     scalar time_start,
-    scalar time_end) :  FivePolyMethod<scalar, 3,calscalar>(init, target, time_start,time_end) {
-      if(target(2) > init(2)){
-        _com_z_peek = (target(2) - init(2))*1.5;
-      }
-      else {
-        _com_z_peek = (init(2) - target(2))*0.3;
-      }
+    scalar time_end) : FivePolyMethod<scalar, 3, calscalar>(init, target, time_start, time_end) {
+    if (target(2) > init(2)) {
+      _com_z_peek = (target(2) - init(2)) * 0.8;
     }
+    else {
+      _com_z_peek = (init(2) - target(2)) * 0.3;
+    }
+  }
 
-  Eigen::Vector<scalar,3> NowVal(const scalar now) const override{
+  Eigen::Vector<scalar, 3> NowVal(const scalar now) const override {
 
-    if(now < tihs->_time_start){
+    if (now < this->_time_start) {
       return this->_initial;
     }
-    else if(now > this->_time_end){
+    else if (now > this->_time_end) {
       return this->_target;
     }
 
-    Eigen::Vector<scalar,3>  ret = FivePolyMethod<scalar,3,calscalar>::NowVal(now);
+    Eigen::Vector<scalar, 3>  ret = FivePolyMethod<scalar, 3, calscalar>::NowVal(now);
 
-    const calscalar t = static_cast<calscalar>(now-this->_time_start);
-    const calscalar period = static_cast<calscalar>(this->_time_end-this->_time_start+1);
-    ret(2) += -_com_z_peek + _com_z_peek*std::cos(2*M_PI*t/period);
+    const calscalar t = static_cast<calscalar>(now - this->_time_start);
+    const calscalar period = static_cast<calscalar>(this->_time_end - this->_time_start + 1);
+    ret(0) += -_com_z_peek + _com_z_peek * std::cos(2 * M_PI * t / period);
+    ret(2) += _com_z_peek - _com_z_peek * std::cos(2 * M_PI * t / period);
     return ret;
   }
 private:

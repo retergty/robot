@@ -1,12 +1,12 @@
 clear;
+close all;
+load("walkpattern4.txt");
 
-load("walkpattern2.txt");
-
-com = walkpattern2(1:3,:);
-left = walkpattern2(4:6,:);
-right = walkpattern2(7:9,:);
-ref_zmp =  walkpattern2(10:11,:);
-zmp = walkpattern2(12:13,:);
+com = walkpattern4(1:3,:);
+left = walkpattern4(4:6,:);
+right = walkpattern4(7:9,:);
+ref_zmp =  walkpattern4(10:11,:);
+zmp = walkpattern4(12:13,:);
 
 figure(1);
 plot3(com(1,:),com(2,:),com(3,:));

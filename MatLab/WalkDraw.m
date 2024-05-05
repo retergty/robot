@@ -1,12 +1,12 @@
 clear;
 
-load("walkpattern2.txt");
+load("walkpattern3.txt");
 
-com = walkpattern2(1:3,:);
-left = walkpattern2(4:6,:);
-right = walkpattern2(7:9,:);
-ref_zmp =  walkpattern2(10:11,:);
-zmp = walkpattern2(12:13,:);
+com = walkpattern3(1:3,:);
+left = walkpattern3(4:6,:);
+right = walkpattern3(7:9,:);
+ref_zmp =  walkpattern3(10:11,:);
+zmp = walkpattern3(12:13,:);
 
 fh = figure(1);
 grid on;
@@ -32,7 +32,7 @@ for i=1:5:length(com)
     drawnow();
     grid on;
     hold off;
-    pause(0.04);
+    pause(0.01);
 end
 plot3(com(1,:),com(2,:),com(3,:));
 hold on;

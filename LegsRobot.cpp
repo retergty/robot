@@ -27,20 +27,20 @@ int main()
 
   //upstairs 
   WalkPatternGen<double> walk3;
-  walk3.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,0,01);
+  walk3.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,0.01);
   walk3.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk3.UpdateState();
-  walk3.GenerateTrajectoryPosition<StairsMethod<double>,FivePolyMethod<double,1>>();
+  walk3.GenerateTrajectoryPosition<StairsMethod<double,long double>,FivePolyMethod<double,1,long double>>();
   std::ofstream fout3("../MatLab/walkpattern3.txt", std::ios::out);
   GenerateWalkPatternToFile(walk3, fout3);
 
   //upstairs 
   WalkPatternGen<double> walk4;
-  walk4.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,-0,01);
+  walk4.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,-0.01);
   walk4.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk4.UpdateState();
-  walk4.GenerateTrajectoryPosition<StairsMethod<double>,FivePolyMethod<double,1>>();
-  std::ofstream fout2("../MatLab/walkpattern4.txt", std::ios::out);
+  walk4.GenerateTrajectoryPosition<StairsMethod<double,long double>,FivePolyMethod<double,1,long double>>();
+  std::ofstream fout4("../MatLab/walkpattern4.txt", std::ios::out);
   GenerateWalkPatternToFile(walk4, fout4);
 
 }
