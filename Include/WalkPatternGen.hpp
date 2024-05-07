@@ -77,143 +77,45 @@ public:
     _ref_zmp.y.push_back(com_position(1));
   }
 
-  //generate reference zmp of single step zmp
-  void GenerateAStepZMP(const xy_dim<scalar>& target_zmp, const scalar time_start = Tstart, const scalar time_dbl = Tdbl, const scalar time_rest = Trest) {
-    xy_dim<scalar> old_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
-    scalar t = _sample_time;
-
-    if (old_zmp.x != target_zmp.x || old_zmp.y != target_zmp.y) {
-      //keep old value
-      while (t < time_start || isEqual(t, time_start)) {
-        _ref_zmp.x.push_back(old_zmp.x);
-        _ref_zmp.y.push_back(old_zmp.y);
-        t += _sample_time;
-      }
-
-      _last_single_support_index.push_back(_ref_zmp.x.size() - 1);
-
-      //smooth step
-      SmoothStep(_ref_zmp.x, time_dbl, target_zmp.x, _sample_time);
-      SmoothStep(_ref_zmp.y, time_dbl, target_zmp.y, _sample_time);
-
-      _last_double_support_index.push_back(_ref_zmp.x.size() - 1);
-
-      //keep new value
-      t = _sample_time;
-      while (t < time_rest || isEqual(t, time_rest)) {
-        _ref_zmp.x.push_back(target_zmp.x);
-        _ref_zmp.y.push_back(target_zmp.y);
-        t += _sample_time;
-      }
-
-      //increase step count
-      ++_step_total;
-    }
-    else {
-      //keep old value
-      while (t < time_start + time_dbl + time_rest || isEqual(t, time_start + time_dbl + time_rest)) {
-        _ref_zmp.x.push_back(old_zmp.x);
-        _ref_zmp.y.push_back(old_zmp.y);
-        t += _sample_time;
-      }
-    }
-  }
-
   //generate a robot step reference zmp,first move zmp to support leg,second move zmp to forward, finally move zmp to center
   // leg is support leg
-  void GenerateAStep(const scalar sx = Sx, const scalar sy = Sy, const scalar sz = Sz, const LEG sup_leg = LEG::RIGHT) {
-    xy_dim<scalar> target_zmp1;
-    xy_dim<scalar> target_zmp2;
-    xy_dim<scalar> target_zmp3;
-
-    if (_step_total == 0) {
-      _first_support = sup_leg;
-    }
-
-    if (sup_leg == LEG::RIGHT) {
-      target_zmp1.x = _ref_zmp.x.back();
-      target_zmp1.y = _ref_zmp.y.back() - sy / 2;
-
-      target_zmp2.x = target_zmp1.x + sx;
-      target_zmp2.y = target_zmp1.y + sy;
-
-      target_zmp3.x = target_zmp2.x;
-      target_zmp3.y = target_zmp2.y - sy / 2;
-    }
-    else {
-      target_zmp1.x = _ref_zmp.x.back();
-      target_zmp1.y = _ref_zmp.y.back() + sy / 2;
-
-      target_zmp2.x = target_zmp1.x + sx;
-      target_zmp2.y = target_zmp1.y - sy;
-
-      target_zmp3.x = target_zmp2.x;
-      target_zmp3.y = target_zmp3.y + sy / 2;
-    }
-
-    GenerateAStepZMP(target_zmp1);
-    GenerateAStepZMP(target_zmp2);
-    GenerateAStepZMP(target_zmp3);
-
-    scalar z_init = _target_z.back();
-    _target_z.push_back(z_init);
-    _target_z.push_back(z_init + sz);
-    _target_z.push_back(_target_z.back());
+  void GenerateAStep(const scalar sx = Sx, const scalar sy = Sy, const scalar sz = Sz, const LEG sup_leg = LEG::RIGHT, const scalar time_step = Tstep)
+  {
+    std::vector<scalar> target_sx{ 0,sx,0 };
+    std::vector<scalar> target_sy{ sy / 2,sy,sy / 2 };
+    std::vector<scalar> target_sz{ 0,sz,0 };
+    GenerateContinuousStep(target_sx, target_sy, target_sz, sup_leg, time_step);
   }
 
-  //generate a robot step reference zmp,first move zmp to support leg,second move zmp to forward, finally move zmp to center
+  //generate a robot step reference zmp,use foot support plant, first move zmp to support leg,second move zmp to forward, finally move zmp to center
   // leg is support leg
-  void GenerateAStepAggressive(const scalar sx = Sx, const scalar sy = Sy, const scalar sz = Sz, const LEG sup_leg = LEG::RIGHT) {
-    xy_dim<scalar> target_zmp1;
-    xy_dim<scalar> target_zmp2;
-    xy_dim<scalar> target_zmp3;
-
-    if (_step_total == 0) {
-      _first_support = sup_leg;
-    }
-
-    if (sup_leg == LEG::RIGHT) {
-      target_zmp1.x = _ref_zmp.x.back() + param::FOOT_SUPPORT_PLANT;
-      target_zmp1.y = _ref_zmp.y.back() - sy / 2;
-
-      target_zmp2.x = target_zmp1.x + sx;
-      target_zmp2.y = target_zmp1.y + sy;
-
-      target_zmp3.x = target_zmp2.x;
-      target_zmp3.y = target_zmp2.y - sy / 2;
-    }
-    else {
-      target_zmp1.x = _ref_zmp.x.back();
-      target_zmp1.y = _ref_zmp.y.back() + sy / 2;
-
-      target_zmp2.x = target_zmp1.x + sx;
-      target_zmp2.y = target_zmp1.y - sy;
-
-      target_zmp3.x = target_zmp2.x;
-      target_zmp3.y = target_zmp3.y + sy / 2;
-    }
-
-    GenerateAStepZMP(target_zmp1);
-    GenerateAStepZMP(target_zmp2);
-    GenerateAStepZMP(target_zmp3);
-
-    scalar z_init = _target_z.back();
-    _target_z.push_back(z_init);
-    _target_z.push_back(z_init + sz);
-    _target_z.push_back(_target_z.back());
+  void GenerateAStepAggressive(const scalar sx = Sx, const scalar sy = Sy, const scalar sz = Sz, const LEG sup_leg = LEG::RIGHT, const scalar time_step = Tstep)
+  {
+    std::vector<scalar> target_sx{ param::FOOT_SUPPORT_PLANT,sx,0 };
+    std::vector<scalar> target_sy{ sy / 2,sy,sy / 2 };
+    std::vector<scalar> target_sz{ 0,sz,0 };
+    GenerateContinuousStep(target_sx, target_sy, target_sz, sup_leg, time_step);
   }
 
   //generate continuous step
   // leg is first step support leg
-  void GenerateContinuousStep(const std::vector<scalar>& sx, const std::vector<scalar>& sy, const std::vector<scalar>& sz, const LEG first_sup_leg) {
+  void GenerateContinuousStep(const std::vector<scalar>& sx, const std::vector<scalar>& sy, const std::vector<scalar>& sz, const LEG first_sup_leg, const scalar time_step = Tstep) {
+    const scalar time_start = time_step * param::START_SCALAR;
+    const scalar time_dbl = time_step * param::DBL_SCALAR;
+    const scalar time_rest = time_step * param::REST_SCALAR;
+
     xy_dim<scalar> target_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
-    size_t factor = 0;
+    scalar target_z = _target_z.back();
+
     if (_step_total == 0) {
       _first_support = first_sup_leg;
     }
+
+    size_t factor = 0;
     if (first_sup_leg == LEG::LEFT) {
       ++factor;
     }
+
     for (size_t i = 0;i < sx.size();++i) {
       target_zmp.x += sx[i];
       if (factor % 2)
@@ -221,8 +123,10 @@ public:
       else
         target_zmp.y -= sy[i];
       ++factor;
-      GenerateAStepZMP(target_zmp);
-      _target_z.push_back(sz[i]);
+      GenerateAStepZMP(target_zmp, time_start, time_dbl, time_rest);
+
+      target_z += sz[i];
+      _target_z.push_back(target_z);
     }
   }
 
@@ -231,18 +135,6 @@ public:
     xy_dim<scalar> old_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
     GenerateAStepZMP(old_zmp, time_still);
     return;
-  }
-  // Generate control input, using x y state, zmp in this time, reference zmp in this and future time
-  // INPOTANT ASSUMPTION! Inputs are generated in sequence.
-  void GenerateInput(const size_t index) {
-    _input_tmp.x += -_K_(0) * (_zmp.x[index] - _ref_zmp.x[index]);
-    _input_tmp.y += -_K_(0) * (_zmp.y[index] - _ref_zmp.y[index]);
-    _input.x[index] = _input_tmp.x - _K_.template tail<3>().dot(_state.x[index]);
-    _input.y[index] = _input_tmp.y - _K_.template tail<3>().dot(_state.y[index]);
-    for (size_t i = 0;i < _prv_num;++i) {
-      _input.x[index] -= _G_[i] * _ref_zmp.x[std::min(i + index + 1, _ref_zmp.x.size() - 1)];
-      _input.y[index] -= _G_[i] * _ref_zmp.y[std::min(i + index + 1, _ref_zmp.y.size() - 1)];
-    }
   }
 
   //update state, use reference zmp to calculate state vector
@@ -397,6 +289,62 @@ private:
     _last_double_support_index.push_back(_ref_zmp.x.size() - 1);
     _last_single_support_index.push_back(_ref_zmp.x.size() - 1);
   }
+
+  //generate reference zmp of single step zmp
+  void GenerateAStepZMP(const xy_dim<scalar>& target_zmp, const scalar time_start = Tstart, const scalar time_dbl = Tdbl, const scalar time_rest = Trest) {
+    xy_dim<scalar> old_zmp{ _ref_zmp.x.back(), _ref_zmp.y.back() };
+    scalar t = _sample_time;
+
+    if (old_zmp.x != target_zmp.x || old_zmp.y != target_zmp.y) {
+      //keep old value
+      while (t < time_start || isEqual(t, time_start)) {
+        _ref_zmp.x.push_back(old_zmp.x);
+        _ref_zmp.y.push_back(old_zmp.y);
+        t += _sample_time;
+      }
+
+      _last_single_support_index.push_back(_ref_zmp.x.size() - 1);
+
+      //smooth step
+      SmoothStep(_ref_zmp.x, time_dbl, target_zmp.x, _sample_time);
+      SmoothStep(_ref_zmp.y, time_dbl, target_zmp.y, _sample_time);
+
+      _last_double_support_index.push_back(_ref_zmp.x.size() - 1);
+
+      //keep new value
+      t = _sample_time;
+      while (t < time_rest || isEqual(t, time_rest)) {
+        _ref_zmp.x.push_back(target_zmp.x);
+        _ref_zmp.y.push_back(target_zmp.y);
+        t += _sample_time;
+      }
+
+      //increase step count
+      ++_step_total;
+    }
+    else {
+      //keep old value
+      while (t < time_start + time_dbl + time_rest || isEqual(t, time_start + time_dbl + time_rest)) {
+        _ref_zmp.x.push_back(old_zmp.x);
+        _ref_zmp.y.push_back(old_zmp.y);
+        t += _sample_time;
+      }
+    }
+  }
+
+  // Generate control input, using x y state, zmp in this time, reference zmp in this and future time
+  // INPOTANT ASSUMPTION! Inputs are generated in sequence.
+  void GenerateInput(const size_t index) {
+    _input_tmp.x += -_K_(0) * (_zmp.x[index] - _ref_zmp.x[index]);
+    _input_tmp.y += -_K_(0) * (_zmp.y[index] - _ref_zmp.y[index]);
+    _input.x[index] = _input_tmp.x - _K_.template tail<3>().dot(_state.x[index]);
+    _input.y[index] = _input_tmp.y - _K_.template tail<3>().dot(_state.y[index]);
+    for (size_t i = 0;i < _prv_num;++i) {
+      _input.x[index] -= _G_[i] * _ref_zmp.x[std::min(i + index + 1, _ref_zmp.x.size() - 1)];
+      _input.y[index] -= _G_[i] * _ref_zmp.y[std::min(i + index + 1, _ref_zmp.y.size() - 1)];
+    }
+  }
+
 
   //generate state trajetory
   //the difference with normal walking is that the initial zmp always is not in right(or left) leg support.
