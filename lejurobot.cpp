@@ -21,7 +21,7 @@ constexpr scalar RIGHT_LEG_ANGLE_COF[5] = { -1,-1,-1,-1,-1 };
 template<typename scalar>
 constexpr scalar LEJU_COM_Z_FALL_DOWN = 0.018;
 
-constexpr size_t SPEED_DEFAULT = 80;
+constexpr size_t SPEED_DEFAULT = 15;
 constexpr unsigned short STIFFNESS_DEFAULT = 60;
 
 template<typename scalar>
@@ -96,7 +96,7 @@ void GenerateFormatWalkTo(std::ostream& os,
   const Eigen::Vector<unsigned short, 5>& stiffness_leg = Eigen::Vector<unsigned short, 5>::Constant(STIFFNESS_DEFAULT);
   const Eigen::Vector<unsigned short, 3>& stiffness_hand = Eigen::Vector<unsigned short, 3>::Constant(STIFFNESS_DEFAULT);
   os << GenerateFormatStiffness(stiffness_leg, stiffness_leg, stiffness_hand, stiffness_hand, stiffness_hand);
-  for (size_t i = 0; i < leg_angle.size(); i += 60)
+  for (size_t i = 0; i < leg_angle.size(); i += 20)
   {
     os << GenerateFormatAngle((leg_angle[i].template segment<5>(1).array() * Rad2Deg<double>).matrix().eval(), (leg_angle[i].template segment<5>(7).array() * Rad2Deg<double>).matrix().eval(), right_hand, left_hand, remote_motor);
   }
@@ -141,26 +141,33 @@ int main()
   GenerateFormatWalkTo(fos2, walk2_angle, right_hand, left_hand, remote_hand);
   fos2.close();
 
-  WalkPatternGen<double> walk3({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
-  walk3.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, 0.02);
+  Eigen::Vector<double, 3> right_hand_rise{ 87,90,100 };
+  Eigen::Vector<double, 3> left_hand_rise{ 79,94,98 };
+  Eigen::Vector<double, 3> remote_hand_rise{ 128,73,100 };
+  right_hand_rise.array() -= ANGLE_OFFSET<double>;
+  left_hand_rise.array() -= ANGLE_OFFSET<double>;
+  remote_hand_rise.array() -= ANGLE_OFFSET<double>;
+
+  WalkPatternGen<double> walk3({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.07 });
+  walk3.GenerateAStepAggressive(0.15, param::STEP_WIDTH, 0.023);
   walk3.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk3.UpdateState();
   walk3.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();
   std::vector<Eigen::Vector<double, 12>> walk3_angle = walk3.GetWalkAngle();
 
   std::ofstream fos3("WalkGen/upStairs.src", std::ios::out);
-  GenerateFormatWalkTo(fos3, walk3_angle, right_hand, left_hand, remote_hand);
+  GenerateFormatWalkTo(fos3, walk3_angle, right_hand_rise, left_hand_rise, remote_hand_rise);
   fos3.close();
 
-  WalkPatternGen<double> walk4({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
-  walk4.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, -0.02);
+  WalkPatternGen<double> walk4({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.07 });
+  walk4.GenerateAStepAggressive(0.15, param::STEP_WIDTH, -0.023);
   walk4.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk4.UpdateState();
   walk4.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();
   std::vector<Eigen::Vector<double, 12>> walk4_angle = walk4.GetWalkAngle();
 
   std::ofstream fos4("WalkGen/downStairs.src", std::ios::out);
-  GenerateFormatWalkTo(fos4, walk4_angle, right_hand, left_hand, remote_hand);
+  GenerateFormatWalkTo(fos4, walk4_angle, right_hand_rise, left_hand_rise, remote_hand_rise);
   fos4.close();
 
   LegsRobot<double> leg_robot({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.01 });

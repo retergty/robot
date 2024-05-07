@@ -17,8 +17,8 @@ int main()
   WalkPatternGen<double> walk2;
   std::vector<double> sx = { 0,param::STEP_LENGTH,param::STEP_LENGTH,param::STEP_LENGTH,0 };
   std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH / 2 };
-  std::vector<double> sz = {0,0,0,0,0};
-  walk2.GenerateContinuousStep(sx, sy, sz,WalkPatternGen<double>::LEG::RIGHT);
+  std::vector<double> sz = { 0,0,0,0,0 };
+  walk2.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::RIGHT);
   walk2.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk2.UpdateState();
   walk2.GenerateTrajectoryPosition();
@@ -26,20 +26,20 @@ int main()
   GenerateWalkPatternToFile(walk2, fout2);
 
   //upstairs 
-  WalkPatternGen<double> walk3;
-  walk3.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,0.02);
+  WalkPatternGen<double> walk3({ 0,0,param::COM_Z - 0.018 - 0.02 });
+  walk3.GenerateAStep(0.15, param::STEP_WIDTH, 0.023);
   walk3.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk3.UpdateState();
-  walk3.GenerateTrajectoryPosition<StairsMethod<double,long double>,FivePolyMethod<double,1,long double>>();
+  walk3.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double>>();
   std::ofstream fout3("../MatLab/walkpattern3.txt", std::ios::out);
   GenerateWalkPatternToFile(walk3, fout3);
 
   //upstairs 
   WalkPatternGen<double> walk4;
-  walk4.GenerateAStep(param::STEP_LENGTH,param::STEP_WIDTH,-0.02);
+  walk4.GenerateAStep(param::STEP_LENGTH, param::STEP_WIDTH, -0.02);
   walk4.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk4.UpdateState();
-  walk4.GenerateTrajectoryPosition<StairsMethod<double,long double>,FivePolyMethod<double,1,long double>>();
+  walk4.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double>>();
   std::ofstream fout4("../MatLab/walkpattern4.txt", std::ios::out);
   GenerateWalkPatternToFile(walk4, fout4);
 
