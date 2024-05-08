@@ -13,7 +13,7 @@ namespace param
   constexpr double COM_Y = 0;
   constexpr double COM_Z = SHANK_LENGTH + THIGH_LENGTH - LEG_CENTER_RELATIVE_TO_COM_Z;
 
-  constexpr double STEP_TIME = 4;
+  constexpr double STEP_TIME = 2;
   constexpr double START_SCALAR = 0.4;
   constexpr double DBL_SCALAR = 0.3;
   constexpr double REST_SCALAR = 0.3;
@@ -22,5 +22,5 @@ namespace param
   constexpr double STEP_WIDTH = HIP_LENGTH*2;
   constexpr double STEP_HEIGHT = 0;
 
-  constexpr double STEP_Z_PEEK = 0.035;
+  constexpr double STEP_Z_PEEK = 0.015;
 } // namespace robot
