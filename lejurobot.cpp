@@ -153,8 +153,11 @@ int main()
   GenerateFormatWalkTo(fos3, walk3_angle, right_hand_rise, left_hand_rise, remote_hand_rise);
   fos3.close();
 
-  WalkPatternGen<double> walk4({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.075 });
-  walk4.GenerateAStepAggressive(0.15, param::STEP_WIDTH, -0.023);
+  WalkPatternGen<double> walk4({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.08});
+  std::vector<double> sx_down = { 0.0505,0.153,0 };
+  std::vector<double> sy_down = { param::STEP_WIDTH / 2,param::STEP_WIDTH,param::STEP_WIDTH / 2 };
+  std::vector<double> sz_down = { 0,-0.019,0 };
+  walk4.GenerateContinuousStep(sx_down,sy_down,sz_down,WalkPatternGen<double>::LEG::RIGHT);
   walk4.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk4.UpdateState();
   walk4.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();

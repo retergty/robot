@@ -52,8 +52,8 @@ public:
   constexpr static scalar Sy = param::STEP_WIDTH; //step width
   constexpr static scalar Sz = param::STEP_HEIGHT; // step height
   constexpr static long SwingLegPreserveIndex = std::floor(Tstart / PREVIEW_CONTROL_SAMPLE_TIME * 0.1);//use to generate swing leg trajectory, leave some times between single leg period and double leg period
-  constexpr static long ComZMovingWaitIndex = std::floor(Tstep / PREVIEW_CONTROL_SAMPLE_TIME * 0.5); // leave some times, before com z start moving
-  constexpr static long ComZMovingPreserveIndex = std::floor(Tstep / PREVIEW_CONTROL_SAMPLE_TIME * 0.2); // leave some times, after com z finish moving
+  constexpr static long ComZMovingWaitIndex = std::floor(Tstep / PREVIEW_CONTROL_SAMPLE_TIME * 0.3); // leave some times, before com z start moving
+  constexpr static long ComZMovingPreserveIndex = std::floor(Tstep / PREVIEW_CONTROL_SAMPLE_TIME * 0.3); // leave some times, after com z finish moving
 
   using Vector3 = Eigen::Vector<scalar, 3>;
   using Matrix33 = Eigen::Matrix<scalar, 3, 3>;
