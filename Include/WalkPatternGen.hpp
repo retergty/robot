@@ -69,8 +69,9 @@ public:
     _C_(1) = 0;
     _C_(2) = -com_position(2) / PREVIEW_CONTROL_ACC_G;
 
-    //give reference z a init val equal to 0
-    _target_z.push_back(0);
+    //give target z a init val equal to support leg 
+    const Vector3& last_joint = _legrobot.rightLeg().back().position();
+    _target_z.push_back(last_joint(2));
 
     //give reference zmp a init val
     _ref_zmp.x.push_back(com_position(0));

@@ -208,8 +208,8 @@ public:
   };
   LegsRobot(const Vector3& com_position = { param::COM_X,param::COM_Y,param::COM_Z }, const Matrix33& com_rotation = Matrix33::Identity()):_mass_center(com_position, com_rotation)
   {
-    Vector3 com_position_straigt = { 0,0,param::SHANK_LENGTH + param::THIGH_LENGTH - param::LEG_CENTER_RELATIVE_TO_COM_Z };
-    const Vector3 leg_center_position = com_position_straigt + com_rotation * leg_center_relative_to_com;
+    Vector3 com_position_straigt = { com_position(0),com_position(1),param::SHANK_LENGTH + param::THIGH_LENGTH - param::LEG_CENTER_RELATIVE_TO_COM_Z };
+    const Vector3 leg_center_position = com_rotation*(com_position_straigt + leg_center_relative_to_com);
 
     _leg_center = Pose<scalar>(leg_center_position, com_rotation);
 
