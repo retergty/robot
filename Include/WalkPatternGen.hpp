@@ -101,6 +101,9 @@ public:
   //generate continuous step
   // leg is first step support leg
   void GenerateContinuousStep(const std::vector<scalar>& sx, const std::vector<scalar>& sy, const std::vector<scalar>& sz, const LEG first_sup_leg, const scalar time_step = Tstep) {
+    assert(sx.size() == sy.size());
+    assert(sx.size() == sz.size());
+    
     const scalar time_start = time_step * param::START_SCALAR;
     const scalar time_dbl = time_step * param::DBL_SCALAR;
     const scalar time_rest = time_step * param::REST_SCALAR;
