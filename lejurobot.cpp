@@ -195,7 +195,7 @@ void RightWithHandRise()
   std::vector<double> sy = { param::STEP_WIDTH / 2,1.5 * param::STEP_WIDTH,param::STEP_WIDTH,1.5 * param::STEP_WIDTH,param::STEP_WIDTH / 2 };
   std::vector<double> sz = { 0,0,0,0,0 };
   walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::LEFT, 0.5);
-  walk.GenerateStillStep(0.1);
+  walk.GenerateStillStep(0.05);
   walk.UpdateState();
   walk.GenerateTrajectoryPosition();
   std::vector<Eigen::Vector<double, 12>> walk_angle = walk.GetWalkAngle();
@@ -264,8 +264,8 @@ void MoveGrab()
   std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH,param::STEP_WIDTH,param::STEP_WIDTH / 2 };
   std::vector<double> sz = { 0,0,0,0 };
 
-  walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::RIGHT, 0.8);
-  walk.GenerateStillStep(0.3);
+  walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::RIGHT, 0.7);
+  walk.GenerateStillStep(0.2);
   walk.UpdateState();
   walk.GenerateTrajectoryPosition();
 
@@ -275,13 +275,36 @@ void MoveGrab()
   fos.close();
 }
 
+void MoveRightGrab()
+{
+  Eigen::Vector<double, 3> right_hand_grab{ 61,17,153 };
+  Eigen::Vector<double, 3> left_hand_grab{ 65,13,152 };
+  Eigen::Vector<double, 3> remote_hand_grab{ 121,76,100 };
+  right_hand_grab.array() -= ANGLE_OFFSET<double>;
+  left_hand_grab.array() -= ANGLE_OFFSET<double>;
+  remote_hand_grab.array() -= ANGLE_OFFSET<double>;
 
+  WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double> });
+  std::vector<double> sx = { 0,0,0,0,0 };
+  std::vector<double> sy = { param::STEP_WIDTH / 2,1.3*param::STEP_WIDTH,param::STEP_WIDTH,1.3*param::STEP_WIDTH,param::STEP_WIDTH / 2 };
+  std::vector<double> sz = { 0,0,0,0,0 };
+
+  walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::LEFT, 0.5);
+  walk.GenerateStillStep(0.05);
+  walk.UpdateState();
+  walk.GenerateTrajectoryPosition();
+
+  std::vector<Eigen::Vector<double, 12>> walk_angle = walk.GetWalkAngle();
+  std::ofstream fos("WalkGen/moveright_grab.src", std::ios::out);
+  GenerateFormatWalkTo(fos, walk_angle, right_hand_grab, left_hand_grab, remote_hand_grab);
+  fos.close();
+}
 
 int main()
 {
   WalkingOneStep();
   WalkingOneStepLong();
-  
+
   RightOneStep();
   LeftOneStep();
 
@@ -291,6 +314,6 @@ int main()
   DownStairs();
 
   MoveGrab();
-
+  MoveRightGrab();
   return 0;
 }
