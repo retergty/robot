@@ -259,7 +259,7 @@ public:
       _com_z_peek = (target(2) - init(2)) * 0.8;
     }
     else {
-      _com_z_peek = (init(2) - target(2)) * 0.4;
+      _com_z_peek = (init(2) - target(2)) * 0.8;
     }
   }
 

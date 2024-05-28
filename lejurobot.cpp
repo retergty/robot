@@ -43,11 +43,11 @@ std::string GenerateFormatAngle(const Eigen::Vector<scalar, 5>& right_leg, const
     << round(LejuMotorAngle(left_leg(1), LEFT_LEG_ANGLE_COF<scalar>[1], LEFT_LEG_ANGLE_ZERO_POINT<scalar>[1])) << ","
     << round(LejuMotorAngle(left_leg(0), LEFT_LEG_ANGLE_COF<scalar>[0], LEFT_LEG_ANGLE_ZERO_POINT<scalar>[0])) << std::endl;
   oss << "MOTORB,"
-    << round(LejuMotorAngle(right_leg(4), RIGHT_LEG_ANGLE_COF<scalar>[4], LEFT_LEG_ANGLE_ZERO_POINT<scalar>[4])) << ","
-    << round(LejuMotorAngle(right_leg(3), RIGHT_LEG_ANGLE_COF<scalar>[3], LEFT_LEG_ANGLE_ZERO_POINT<scalar>[3])) << ","
-    << round(LejuMotorAngle(right_leg(2), RIGHT_LEG_ANGLE_COF<scalar>[2], LEFT_LEG_ANGLE_ZERO_POINT<scalar>[2])) << ","
-    << round(LejuMotorAngle(right_leg(1), RIGHT_LEG_ANGLE_COF<scalar>[1], LEFT_LEG_ANGLE_ZERO_POINT<scalar>[1])) << ","
-    << round(LejuMotorAngle(right_leg(0), RIGHT_LEG_ANGLE_COF<scalar>[0], LEFT_LEG_ANGLE_ZERO_POINT<scalar>[0])) << std::endl;
+    << round(LejuMotorAngle(right_leg(4), RIGHT_LEG_ANGLE_COF<scalar>[4], RIGHT_LEG_ANGLE_ZERO_POINT<scalar>[4])) << ","
+    << round(LejuMotorAngle(right_leg(3), RIGHT_LEG_ANGLE_COF<scalar>[3], RIGHT_LEG_ANGLE_ZERO_POINT<scalar>[3])) << ","
+    << round(LejuMotorAngle(right_leg(2), RIGHT_LEG_ANGLE_COF<scalar>[2], RIGHT_LEG_ANGLE_ZERO_POINT<scalar>[2])) << ","
+    << round(LejuMotorAngle(right_leg(1), RIGHT_LEG_ANGLE_COF<scalar>[1], RIGHT_LEG_ANGLE_ZERO_POINT<scalar>[1])) << ","
+    << round(LejuMotorAngle(right_leg(0), RIGHT_LEG_ANGLE_COF<scalar>[0], RIGHT_LEG_ANGLE_ZERO_POINT<scalar>[0])) << std::endl;
   oss << "MOTORC," << round(left_hand(2) + angle_offset) << "," << round(left_hand(1) + angle_offset) << "," << round(left_hand(0) + angle_offset) << std::endl;
   oss << "MOTORD," << round(right_hand(2) + angle_offset) << "," << round(right_hand(1) + angle_offset) << "," << round(right_hand(0) + angle_offset) << std::endl;
   oss << "MOTORE," << round(remote_motor(2) + angle_offset) << "," << round(remote_motor(1) + angle_offset) << "," << round(remote_motor(0) + angle_offset) << std::endl;
@@ -78,10 +78,22 @@ void GenerateFormatWalkTo(std::ostream& os,
 {
   const Eigen::Vector<unsigned short, 5>& stiffness_leg = Eigen::Vector<unsigned short, 5>::Constant(STIFFNESS_DEFAULT);
   const Eigen::Vector<unsigned short, 3>& stiffness_hand = Eigen::Vector<unsigned short, 3>::Constant(STIFFNESS_DEFAULT);
+  Eigen::Vector<scalar, 5> right_leg_last = Eigen::Vector<scalar, 5>::Zero();
+  Eigen::Vector<scalar, 5> left_leg_last = Eigen::Vector<scalar, 5>::Zero();
+  Eigen::Vector<scalar, 5> right_leg;
+  Eigen::Vector<scalar, 5> left_leg;
   os << GenerateFormatStiffness(stiffness_leg, stiffness_leg, stiffness_hand, stiffness_hand, stiffness_hand);
-  for (size_t i = 0; i < leg_angle.size(); i += 100)
+  const size_t jump_index = 60;
+  for (size_t i = 0; i < leg_angle.size(); i += jump_index)
   {
-    os << GenerateFormatAngle((leg_angle[i].template segment<5>(1).array() * Rad2Deg<double>).matrix().eval(), (leg_angle[i].template segment<5>(7).array() * Rad2Deg<double>).matrix().eval(), right_hand, left_hand, remote_motor, speed);
+    right_leg = (leg_angle[i].template segment<5>(1).array() * Rad2Deg<double>).matrix();
+    left_leg = (leg_angle[i].template segment<5>(7).array() * Rad2Deg<double>).matrix();
+
+    if (!isMatrixEqual(right_leg,right_leg_last,1) || !isMatrixEqual(left_leg,left_leg_last,1) || (i + jump_index >= leg_angle.size())) {
+      os << GenerateFormatAngle(right_leg, left_leg, right_hand, left_hand, remote_motor, speed);
+      right_leg_last = right_leg;
+      left_leg_last = left_leg;
+    }
   }
   return;
 }
@@ -134,7 +146,7 @@ void WalkingOneStepLong()
 
   std::vector<Eigen::Vector<double, 12>> walk_angle = walk.GetWalkAngle();
   std::ofstream fos("WalkGen/walking_long.src", std::ios::out);
-  GenerateFormatWalkTo(fos, walk_angle, right_hand, left_hand, remote_hand,50);
+  GenerateFormatWalkTo(fos, walk_angle, right_hand, left_hand, remote_hand, 50);
   fos.close();
 
 }
@@ -220,9 +232,9 @@ void ForwardWithHandRise()
   remote_hand.array() -= ANGLE_OFFSET<double>;
 
   WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.015 });
-  std::vector<double> sx = { 0,0.05,0};
+  std::vector<double> sx = { 0,0.05,0 };
   std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH,param::STEP_WIDTH / 2 };
-  std::vector<double> sz = { 0,0,0};
+  std::vector<double> sz = { 0,0,0 };
   walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::LEFT, 0.7);
   walk.GenerateStillStep(0.1);
   walk.UpdateState();
@@ -321,7 +333,7 @@ void DownStairs2()
   std::vector<Eigen::Vector<double, 12>> walk_angle = walk.GetWalkAngle();
 
   std::ofstream fos("WalkGen/downStairs2.src", std::ios::out);
-  GenerateFormatWalkTo(fos, walk_angle, right_hand, left_hand, remote_hand,15);
+  GenerateFormatWalkTo(fos, walk_angle, right_hand, left_hand, remote_hand, 15);
   fos.close();
 }
 
@@ -360,7 +372,7 @@ void MoveGrabWideRightLegFirst()
 
   WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.025 });
   std::vector<double> sx = { 0,0.06,0.06,0 };
-  std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH+0.01,param::STEP_WIDTH+0.01,param::STEP_WIDTH / 2 };
+  std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH + 0.01,param::STEP_WIDTH + 0.01,param::STEP_WIDTH / 2 };
   std::vector<double> sz = { 0,0,0,0 };
 
   walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::RIGHT, 0.85);
@@ -384,7 +396,7 @@ void MoveGrabWidLeftLegFirst()
 
   WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.025 });
   std::vector<double> sx = { 0,0.06,0.06,0 };
-  std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH+0.01,param::STEP_WIDTH+0.01,param::STEP_WIDTH / 2 };
+  std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH + 0.01,param::STEP_WIDTH + 0.01,param::STEP_WIDTH / 2 };
   std::vector<double> sz = { 0,0,0,0 };
 
   walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::LEFT, 0.85);
@@ -406,9 +418,9 @@ void MoveRightGrab()
   left_hand_grab.array() -= ANGLE_OFFSET<double>;
   remote_hand_grab.array() -= ANGLE_OFFSET<double>;
 
-  WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.015});
+  WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.015 });
   std::vector<double> sx = { 0,0,0,0,0 };
-  std::vector<double> sy = { param::STEP_WIDTH / 2,1.5*param::STEP_WIDTH,param::STEP_WIDTH,1.5*param::STEP_WIDTH,param::STEP_WIDTH / 2 };
+  std::vector<double> sy = { param::STEP_WIDTH / 2,1.5 * param::STEP_WIDTH,param::STEP_WIDTH,1.5 * param::STEP_WIDTH,param::STEP_WIDTH / 2 };
   std::vector<double> sz = { 0,0,0,0,0 };
 
   walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::LEFT, 0.8);
@@ -418,7 +430,7 @@ void MoveRightGrab()
 
   std::vector<Eigen::Vector<double, 12>> walk_angle = walk.GetWalkAngle();
   std::ofstream fos("WalkGen/moveright_grab.src", std::ios::out);
-  GenerateFormatWalkTo(fos, walk_angle, right_hand_grab, left_hand_grab, remote_hand_grab,20);
+  GenerateFormatWalkTo(fos, walk_angle, right_hand_grab, left_hand_grab, remote_hand_grab, 20);
   fos.close();
 }
 
@@ -431,10 +443,10 @@ void MoveForwardGrab()
   left_hand_grab.array() -= ANGLE_OFFSET<double>;
   remote_hand_grab.array() -= ANGLE_OFFSET<double>;
 
-  WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.015});
-  std::vector<double> sx = { 0,0.045,0};
+  WalkPatternGen<double> walk({ 0,0,param::COM_Z - LEJU_COM_Z_FALL_DOWN<double>-0.015 });
+  std::vector<double> sx = { 0,0.045,0 };
   std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH,param::STEP_WIDTH / 2 };
-  std::vector<double> sz = { 0,0,0};
+  std::vector<double> sz = { 0,0,0 };
 
   walk.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::LEFT, 0.8);
   walk.GenerateStillStep(0.1);
@@ -443,7 +455,7 @@ void MoveForwardGrab()
 
   std::vector<Eigen::Vector<double, 12>> walk_angle = walk.GetWalkAngle();
   std::ofstream fos("WalkGen/moveforward_grab.src", std::ios::out);
-  GenerateFormatWalkTo(fos, walk_angle, right_hand_grab, left_hand_grab, remote_hand_grab,20);
+  GenerateFormatWalkTo(fos, walk_angle, right_hand_grab, left_hand_grab, remote_hand_grab, 20);
   fos.close();
 }
 
@@ -462,11 +474,11 @@ int main()
   UpStairs();
   DownStairs();
   DownStairs2();
-  
+
   MoveGrab();
   MoveGrabWideRightLegFirst();
   MoveGrabWidLeftLegFirst();
-  
+
   MoveRightGrab();
   MoveForwardGrab();
   return 0;

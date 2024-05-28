@@ -8,7 +8,17 @@ bool isEqual(scalar lhs, scalar rhs, double presision = 1e-5)
 {
   return (std::abs<scalar>(lhs - rhs) <= presision);
 }
-
+template<typename scalar, int M, int N>
+bool isMatrixEqual(Eigen::Matrix<scalar, M, N> lhs, Eigen::Matrix<scalar, M, N> rhs, double presision = 1e-5)
+{
+  for (int j = 0;j < N;++j) {
+    for (int i = 0;i < M;++i) {
+      if (!isEqual(lhs(i, j), rhs(i, j), presision))
+        return false;
+    }
+  }
+  return true;
+}
 template<typename Type>
 Type LimitTo(const Type t, Type min, Type max)
 {
