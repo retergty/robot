@@ -7,6 +7,7 @@ template <typename scalar, size_t dimens>
 class BaseMethod
 {
 public:
+  BaseMethod() = default;
   BaseMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
@@ -30,6 +31,7 @@ class FourPolyMethod : public BaseMethod<scalar, dimens>
 public:
   using value_type = scalar;
   using cal_value_type = calscalar;
+  FourPolyMethod() = default;
   FourPolyMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
@@ -227,6 +229,7 @@ class KeepMethod : public BaseMethod<scalar, dimens>
 public:
   using value_type = scalar;
   using cal_value_type = calscalar;
+  KeepMethod() = default;
   KeepMethod(
     const Eigen::Vector<scalar, dimens>& init,
     const Eigen::Vector<scalar, dimens>& target,
@@ -256,10 +259,32 @@ public:
     scalar time_start,
     scalar time_end) : FivePolyMethod<scalar, 3, calscalar>(init, target, time_start, time_end) {
     if (target(2) > init(2)) {
-      _com_z_peek = (target(2) - init(2)) * 0.8;
+      _com_z_peek = (target(2) - init(2)) * 1.6;
+      const scalar period = time_end - time_start + 1;
+      _is_down_stairs = false;
+      _down_stairs_up = time_start + period * 0.3;
+      _down_stairs_keep = time_start + period * 0.7;
+      _down_stairs_down = time_end;
+      Eigen::Vector<scalar, 1> init_z{ init(2) };
+      Eigen::Vector<scalar, 1> peek_z{ init(2) + _com_z_peek };
+      Eigen::Vector<scalar, 1> target_z{ target(2) };
+      _up = FourPolyMethod<scalar, 1, scalar, false>(init_z, peek_z, time_start, _down_stairs_up);
+      _keep = KeepMethod<scalar, 1, scalar>(peek_z, peek_z, _down_stairs_up, _down_stairs_keep);
+      _down = FourPolyMethod<scalar, 1, scalar, false>(peek_z, target_z, _down_stairs_keep, _down_stairs_down);
     }
     else {
-      _com_z_peek = (init(2) - target(2)) * 0.8;
+      const scalar period = time_end - time_start + 1;
+      _com_z_peek = (init(2) - target(2)) * 0.6;
+      _is_down_stairs = true;
+      _down_stairs_up = time_start + period * 0.3;
+      _down_stairs_keep = time_start + period * 0.7;
+      _down_stairs_down = time_end;
+      Eigen::Vector<scalar, 1> init_z{ init(2) };
+      Eigen::Vector<scalar, 1> peek_z{ init(2) + _com_z_peek };
+      Eigen::Vector<scalar, 1> target_z{ target(2) };
+      _up = FourPolyMethod<scalar, 1, scalar, false>(init_z, peek_z, time_start, _down_stairs_up);
+      _keep = KeepMethod<scalar, 1, scalar>(peek_z, peek_z, _down_stairs_up, _down_stairs_keep);
+      _down = FourPolyMethod<scalar, 1, scalar, false>(peek_z, target_z, _down_stairs_keep, _down_stairs_down);
     }
   }
 
@@ -271,15 +296,40 @@ public:
     else if (now > this->_time_end) {
       return this->_target;
     }
-
     Eigen::Vector<scalar, 3>  ret = FivePolyMethod<scalar, 3, calscalar>::NowVal(now);
 
-    const calscalar t = static_cast<calscalar>(now - this->_time_start);
-    const calscalar period = static_cast<calscalar>(this->_time_end - this->_time_start + 1);
-    ret(0) += -_com_z_peek + _com_z_peek * std::cos(2 * M_PI * t / period);
-    ret(2) += _com_z_peek - _com_z_peek * std::cos(2 * M_PI * t / period);
+    if (!_is_down_stairs) {
+      if (now < _down_stairs_up) {
+        ret.template tail<1>() = _up.NowVal(now);
+      }
+      else if (now < _down_stairs_keep) {
+        ret.template tail<1>() = _keep.NowVal(now);
+      }
+      else {
+        ret.template tail<1>() = _down.NowVal(now);
+      }
+    }
+    else {
+      if (now < _down_stairs_up) {
+        ret.template tail<1>() = _up.NowVal(now);
+      }
+      else if (now < _down_stairs_keep) {
+        ret.template tail<1>() = _keep.NowVal(now);
+      }
+      else {
+        ret.template tail<1>() = _down.NowVal(now);
+      }
+    }
+
     return ret;
   }
 private:
   scalar _com_z_peek;
+  bool _is_down_stairs;
+  scalar _down_stairs_up;
+  scalar _down_stairs_keep;
+  scalar _down_stairs_down;
+  FourPolyMethod<scalar, 1, scalar, false> _up;
+  KeepMethod<scalar, 1, scalar> _keep;
+  FourPolyMethod<scalar, 1, scalar, false> _down;
 };

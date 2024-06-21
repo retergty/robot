@@ -14,14 +14,14 @@ int main()
   std::ofstream fout1("../MatLab/walkpattern1.txt", std::ios::out);
   GenerateWalkPatternToFile(walk1, fout1);
 
-  WalkPatternGen<double> walk2;
-  std::vector<double> sx = { 0,0,0};
-  std::vector<double> sy = { param::STEP_WIDTH / 2,2*param::STEP_WIDTH,param::STEP_WIDTH / 2 };
-  std::vector<double> sz = { 0,0,0 };
+  WalkPatternGen<double> walk2({ 0,0,param::COM_Z - 0.018-0.075 });;
+  std::vector<double> sx = { 0.02,0.15,0 };
+  std::vector<double> sy = { param::STEP_WIDTH / 2,param::STEP_WIDTH,param::STEP_WIDTH / 2 };
+  std::vector<double> sz = { 0,-0.02,0 };
   walk2.GenerateContinuousStep(sx, sy, sz, WalkPatternGen<double>::LEG::RIGHT);
   walk2.GenerateStillStep(WalkPatternGen<double>::Tstep);
   walk2.UpdateState();
-  walk2.GenerateTrajectoryPosition();
+  walk2.GenerateTrajectoryPosition<StairsMethod<double, long double>, FivePolyMethod<double, 1, long double> >();
   std::ofstream fout2("../MatLab/walkpattern2.txt", std::ios::out);
   GenerateWalkPatternToFile(walk2, fout2);
 
