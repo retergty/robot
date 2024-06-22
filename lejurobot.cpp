@@ -499,7 +499,7 @@ void thread_task(const std::vector<void(*)(void)>::iterator& end, std::vector<vo
     }
     else {
       task_it = now_task++;
-#ifndef NDBUG
+#ifndef NDEBUG
       std::cout << "running " << std::distance(task_it, end) << "st tasks in thread " << std::this_thread::get_id() << std::endl;
 #endif // DEBUG
       lock.unlock();
