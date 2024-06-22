@@ -5,7 +5,8 @@
 #include <sstream>
 #include <string>
 #include <cmath>
-
+#include <thread>
+#include <mutex>
 template <typename scalar>
 constexpr scalar ANGLE_OFFSET = 100;
 
@@ -89,7 +90,7 @@ void GenerateFormatWalkTo(std::ostream& os,
     right_leg = (leg_angle[i].template segment<5>(1).array() * Rad2Deg<double>).matrix();
     left_leg = (leg_angle[i].template segment<5>(7).array() * Rad2Deg<double>).matrix();
 
-    if (!isMatrixEqual(right_leg,right_leg_last,1) || !isMatrixEqual(left_leg,left_leg_last,1) || (i + jump_index >= leg_angle.size())) {
+    if (!isMatrixEqual(right_leg, right_leg_last, 1) || !isMatrixEqual(left_leg, left_leg_last, 1) || (i + jump_index >= leg_angle.size())) {
       os << GenerateFormatAngle(right_leg, left_leg, right_hand, left_hand, remote_motor, speed);
       right_leg_last = right_leg;
       left_leg_last = left_leg;
@@ -486,28 +487,58 @@ void MoveForwardGrab()
   fos.close();
 }
 
+void thread_task(const std::vector<void(*)(void)>::iterator& end, std::vector<void(*)(void)>::iterator& now_task, std::mutex& task_m)
+{
+  std::vector<void(*)(void)>::iterator task_it;
+  while (1)
+  {
+    std::unique_lock<std::mutex> lock(task_m);
+    if (now_task == end)
+    {
+      break;
+    }
+    else {
+      task_it = now_task++;
+#ifndef NDBUG
+      std::cout << "running " << std::distance(task_it, end) << "st tasks in thread " << std::this_thread::get_id() << std::endl;
+#endif // DEBUG
+      lock.unlock();
+      (*task_it)();
+    }
+  }
+  return;
+}
+
 int main()
 {
-  WalkingOneStep();
-  WalkingOneStepLong();
+  std::vector<void (*)(void)> task_vec;
+  task_vec.push_back(WalkingOneStep);
+  task_vec.push_back(WalkingOneStepLong);
+  task_vec.push_back(LeftOneStep);
+  task_vec.push_back(RightOneStep);
+  task_vec.push_back(RightWithHandRise);
+  task_vec.push_back(ForwardWithHandRise);
+  task_vec.push_back(RightForwardWithHandRise);
+  task_vec.push_back(UpStairs);
+  task_vec.push_back(DownStairs);
+  task_vec.push_back(DownStairs2);
+  task_vec.push_back(MoveGrab);
+  task_vec.push_back(MoveGrabWideRightLegFirst);
+  task_vec.push_back(MoveGrabWidLeftLegFirst);
+  task_vec.push_back(MoveRightGrab);
+  task_vec.push_back(MoveLeftGrab);
+  task_vec.push_back(MoveForwardGrab);
 
-  RightOneStep();
-  LeftOneStep();
+  auto now_task = task_vec.begin();
+  std::mutex task_m;
+  std::thread thread_1(thread_task, task_vec.end(), std::ref(now_task), std::ref(task_m));
+  std::thread thread_2(thread_task, task_vec.end(), std::ref(now_task), std::ref(task_m));
+  std::thread thread_3(thread_task, task_vec.end(), std::ref(now_task), std::ref(task_m));
+  std::thread thread_4(thread_task, task_vec.end(), std::ref(now_task), std::ref(task_m));
 
-  RightWithHandRise();
-  ForwardWithHandRise();
-  RightForwardWithHandRise();
-
-  UpStairs();
-  DownStairs();
-  DownStairs2();
-
-  MoveGrab();
-  MoveGrabWideRightLegFirst();
-  MoveGrabWidLeftLegFirst();
-
-  MoveRightGrab();
-  MoveLeftGrab();
-  MoveForwardGrab();
+  thread_1.join();
+  thread_2.join();
+  thread_3.join();
+  thread_4.join();
   return 0;
 }
